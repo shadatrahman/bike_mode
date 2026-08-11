@@ -34,9 +34,12 @@
     <string name="widget_label">BIKE MODE</string>
     <string name="widget_state_on">ON</string>
     <string name="widget_state_off">OFF</string>
-    <string name="widget_detail_off">TAP TO LOCK</string>
-    <string name="widget_detail_left">LANDSCAPE LEFT</string>
-    <string name="widget_detail_right">LANDSCAPE RIGHT</string>
+    <!-- Off: the direction the next tap will lock to, remembered from last time. -->
+    <string name="widget_direction_locks_left">LOCKS LEFT</string>
+    <string name="widget_direction_locks_right">LOCKS RIGHT</string>
+    <!-- On: the direction currently held. -->
+    <string name="widget_direction_locked_left">LANDSCAPE LEFT</string>
+    <string name="widget_direction_locked_right">LANDSCAPE RIGHT</string>
     <string name="widget_description">Lock the screen to landscape with one tap.</string>
 
     <!-- Errors -->

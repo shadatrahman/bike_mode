@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Wide and tall forms (4x2 and up). Adds the direction and a tap hint. -->
+<!-- Wide and tall forms (4x2 and up). Full label, state and direction on one row. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
@@ -12,8 +12,8 @@
 
     <ImageView
         android:id="@+id/widget_icon"
-        android:layout_width="34dp"
-        android:layout_height="34dp"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
         android:contentDescription="@string/app_name"
         android:src="@drawable/ic_bike_mode" />
 
@@ -39,7 +39,6 @@
             android:id="@+id/widget_state"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
             android:fontFamily="monospace"
             android:letterSpacing="0.16"
             android:maxLines="1"
@@ -48,17 +47,32 @@
             android:textSize="26sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/widget_detail"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:ellipsize="end"
-            android:fontFamily="monospace"
-            android:letterSpacing="0.14"
-            android:maxLines="1"
-            android:text="@string/widget_detail_off"
-            android:textColor="@color/widget_foreground_dim"
-            android:textSize="11sp" />
+            android:layout_marginTop="6dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/widget_direction_icon"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:contentDescription="@string/widget_direction_locks_right"
+                android:src="@drawable/ic_direction_right" />
+
+            <TextView
+                android:id="@+id/widget_direction_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:ellipsize="end"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.14"
+                android:maxLines="1"
+                android:text="@string/widget_direction_locks_right"
+                android:textColor="@color/widget_foreground_dim"
+                android:textSize="11sp" />
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One-row form (roughly 2x1). Glyph plus state, nothing else fits honestly. -->
+<!-- One-row form (roughly 2x1). State on the left, the direction it will lock to on the right. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
@@ -12,8 +12,8 @@
 
     <ImageView
         android:id="@+id/widget_icon"
-        android:layout_width="22dp"
-        android:layout_height="22dp"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
         android:contentDescription="@string/app_name"
         android:src="@drawable/ic_bike_mode" />
 
@@ -21,14 +21,21 @@
         android:id="@+id/widget_state"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
+        android:layout_marginStart="10dp"
         android:layout_weight="1"
         android:ellipsize="end"
         android:fontFamily="monospace"
-        android:letterSpacing="0.18"
+        android:letterSpacing="0.16"
         android:maxLines="1"
         android:text="@string/widget_state_off"
         android:textColor="@color/widget_foreground"
         android:textSize="15sp"
         android:textStyle="bold" />
+
+    <ImageView
+        android:id="@+id/widget_direction_icon"
+        android:layout_width="18dp"
+        android:layout_height="18dp"
+        android:contentDescription="@string/widget_direction_locks_right"
+        android:src="@drawable/ic_direction_right" />
 </LinearLayout>

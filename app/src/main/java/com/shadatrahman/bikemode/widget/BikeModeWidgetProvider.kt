@@ -115,14 +115,21 @@ class BikeModeWidgetProvider : AppWidgetProvider() {
                 R.id.widget_state,
                 context.getString(if (active) R.string.widget_state_on else R.string.widget_state_off),
             )
-            if (layoutId == R.layout.widget_bike_mode_large) {
-                setTextViewText(
-                    R.id.widget_detail,
-                    if (active) {
-                        context.getString(direction.widgetLabelRes)
-                    } else {
-                        context.getString(R.string.widget_detail_off)
-                    },
+
+            // The arrow shows which way the next tap will turn the screen, taken from the
+            // remembered preference — so the rider can check the mount matches before tapping.
+            setImageViewResource(R.id.widget_direction_icon, direction.arrowRes)
+            val directionText = context.getString(direction.labelRes(active))
+            setContentDescription(R.id.widget_direction_icon, directionText)
+
+            if (layoutId != R.layout.widget_bike_mode_compact) {
+                setTextViewText(R.id.widget_direction_text, directionText)
+                // Dim reads as washed-out on the red background, so lift it when active.
+                setTextColor(
+                    R.id.widget_direction_text,
+                    context.getColor(
+                        if (active) R.color.widget_foreground else R.color.widget_foreground_dim
+                    ),
                 )
             }
             setOnClickPendingIntent(R.id.widget_root, togglePendingIntent(context))
@@ -138,10 +145,19 @@ class BikeModeWidgetProvider : AppWidgetProvider() {
             )
         }
 
-        private val LandscapeDirection.widgetLabelRes: Int
+        private val LandscapeDirection.arrowRes: Int
             get() = when (this) {
-                LandscapeDirection.LEFT -> R.string.widget_detail_left
-                LandscapeDirection.RIGHT -> R.string.widget_detail_right
+                LandscapeDirection.LEFT -> R.drawable.ic_direction_left
+                LandscapeDirection.RIGHT -> R.drawable.ic_direction_right
             }
+
+        /** Off reads as a promise ("LOCKS RIGHT"), on reads as a fact ("LANDSCAPE RIGHT"). */
+        private fun LandscapeDirection.labelRes(active: Boolean): Int = when (this) {
+            LandscapeDirection.LEFT ->
+                if (active) R.string.widget_direction_locked_left else R.string.widget_direction_locks_left
+
+            LandscapeDirection.RIGHT ->
+                if (active) R.string.widget_direction_locked_right else R.string.widget_direction_locks_right
+        }
     }
 }

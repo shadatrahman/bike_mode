@@ -60,7 +60,9 @@ A rotation that is already correct is never rewritten, so the watchdog cannot fi
 
 A resizable widget toggles Bike Mode with one tap, styled to sit beside Nothing OS's own: pure black when off, Nothing red when on, monospaced uppercase with wide tracking, and the platform widget corner radius.
 
-Dragging a corner crosses real breakpoints rather than stretching one design — a one-row form shows the glyph and state, a square form adds the label, and wider forms add the locked direction.
+Dragging a corner or edge crosses real breakpoints rather than stretching one design — a one-row form shows the glyph, state and a rotation arrow; a square form adds the label; wider forms lay it all out in a row.
+
+Every form shows which way the screen will turn, taken from the remembered preference, so the rider can check it matches the mount before tapping. Off reads as a promise (`↻ LOCKS RIGHT`), on reads as a fact (`↻ LANDSCAPE RIGHT`), and the arrow curves the way the screen will.
 
 ## Ride Flow
 
