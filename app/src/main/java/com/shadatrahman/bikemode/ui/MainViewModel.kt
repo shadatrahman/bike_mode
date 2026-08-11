@@ -13,6 +13,8 @@ import com.shadatrahman.bikemode.companion.HelmetAssociation
 import com.shadatrahman.bikemode.data.LandscapeDirection
 import com.shadatrahman.bikemode.data.PairedDevice
 import com.shadatrahman.bikemode.data.PreferencesRepository
+import com.shadatrahman.bikemode.notifications.InterruptionController
+import com.shadatrahman.bikemode.notifications.InterruptionSettings
 import com.shadatrahman.bikemode.rotation.BikeModeManager
 import com.shadatrahman.bikemode.util.PermissionManager
 import com.shadatrahman.bikemode.widget.BikeModeWidgetProvider
@@ -32,6 +34,9 @@ data class MainUiState(
     val keepScreenOn: Boolean = true,
     val boostBrightness: Boolean = false,
     val autoStartWithHelmet: Boolean = false,
+    val silenceNotifications: Boolean = false,
+    /** False until the rider grants notification policy access on the system screen. */
+    val canSilenceNotifications: Boolean = false,
     /** Set when a device needs associating; only an activity may ask, so the activity picks it up. */
     val associationRequest: PairedDevice? = null,
     /** Why the last association attempt failed, in the system's own words. Null when it did not. */
@@ -49,6 +54,7 @@ class MainViewModel(
     private val repository: PreferencesRepository = PreferencesRepository(application),
     private val helmetLink: HelmetLink = BluetoothHelmetLink(application),
     private val association: HelmetAssociation = HelmetAssociation(application),
+    private val interruptions: InterruptionSettings = InterruptionController(application),
 ) : ViewModel() {
 
     override fun onCleared() {
@@ -85,6 +91,10 @@ class MainViewModel(
                     keepScreenOn = preferences.keepScreenOn,
                     boostBrightness = preferences.boostBrightness,
                     autoStartWithHelmet = preferences.autoStartWithHelmet,
+                    silenceNotifications = preferences.silenceNotifications,
+                    // Re-read on resume: policy access is granted on a system screen, so the rider
+                    // may well have just come back from granting it.
+                    canSilenceNotifications = interruptions.canControl,
                     helmet = preferences.helmet,
                     pairedDevices = paired,
                     canListDevices = PermissionManager.canUseBluetooth(application),
@@ -135,6 +145,13 @@ class MainViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(boostBrightness = enabled) }
             manager.setBoostBrightness(enabled)
+        }
+    }
+
+    fun setSilenceNotifications(enabled: Boolean) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(silenceNotifications = enabled) }
+            manager.setSilenceNotifications(enabled)
         }
     }
 

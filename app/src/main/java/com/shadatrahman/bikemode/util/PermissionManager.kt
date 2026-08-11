@@ -22,6 +22,14 @@ object PermissionManager {
         Manifest.permission.BLUETOOTH_CONNECT,
     ) == PackageManager.PERMISSION_GRANTED
 
+    /**
+     * Notification policy access, like WRITE_SETTINGS, is granted only on a system screen. Unlike
+     * it, the screen is a list of apps rather than a page for ours, so there is no package to pass.
+     */
+    fun notificationPolicyIntent(): Intent =
+        Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
     fun writeSettingsIntent(context: Context): Intent = Intent(
         Settings.ACTION_MANAGE_WRITE_SETTINGS,
         "package:${context.packageName}".toUri(),

@@ -169,6 +169,11 @@ private fun BikeModeApp(viewModel: MainViewModel) {
                 onPauseMediaChange = viewModel::setPauseMediaOnDisable,
                 onKeepScreenOnChange = viewModel::setKeepScreenOn,
                 onBoostBrightnessChange = viewModel::setBoostBrightness,
+                onSilenceNotificationsChange = viewModel::setSilenceNotifications,
+                // A list of apps, not a page for ours; onResume re-reads access when they return.
+                onGrantDoNotDisturb = {
+                    context.startActivity(PermissionManager.notificationPolicyIntent())
+                },
                 onOpenBluetooth = { showBluetooth = true },
                 onAddTile = { QuickSettingsTilePrompt.request(context) },
                 modifier = contentModifier,

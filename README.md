@@ -112,6 +112,7 @@ app
 │                    (RotationWatchdogService + JobRotationWatchdog)
 ├── bluetooth/       BluetoothController, BluetoothHelmetLink, HelmetMonitor
 ├── media/           MediaPauseController
+├── notifications/   InterruptionController
 ├── display/         DisplayController
 ├── companion/       HelmetPresenceService, HelmetAssociation
 ├── quicksettings/   BikeModeTileService
@@ -166,6 +167,14 @@ Two settings a mounted phone wants changed, both opt-out/opt-in switches of thei
 They follow the same save-and-restore contract as rotation, with one refinement: `SavedDisplayState` holds each field as nullable, and null means *Bike Mode never touched this*. So a rider who dims the screen by hand mid-ride keeps that, and only the settings Bike Mode actually changed are handed back. Timeout goes to 30 minutes rather than never, so a Bike Mode left on in a pocket still eventually sleeps. Display writes are best effort — a device that refuses one still gets its landscape lock, because rotation is the feature and this is comfort on top.
 
 Brightness is gated on the **light sensor**, not on the switch alone. Full brightness is right in direct sun and actively hazardous after dark, so `DaylightGate` decides from a `TYPE_LIGHT` reading, and `RotationWatchdogService` keeps following it for the whole ride — a commute that sets off in sun and finishes at night gives the brightness back on the way. The two thresholds are deliberately far apart (boost above 5000 lux, release below 2000) so that riding under a bridge or a line of trees cannot flicker the screen. A phone with no light sensor has nothing to ask, so there the switch stands on its own.
+
+### Silencing notifications
+
+Opt-in. Holds Do Not Disturb for the ride and hands the rider's own setting back at the end, on the same save-and-restore contract as everything else.
+
+Two decisions carry the feature. It uses **`INTERRUPTION_FILTER_PRIORITY`, never `NONE`** — the priority filter still passes repeat callers and starred contacts, so somebody who genuinely needs the rider gets through on a second attempt. Total silence would block that too, which is the wrong trade on a motorbike. And **navigation is unaffected**: voice guidance goes out over the media stream, which no interruption filter touches, so Maps keeps talking while the group chat does not.
+
+Notification policy access, like WRITE_SETTINGS, cannot be requested at runtime — only granted on a system screen. Until it is, the switch stays off and says why rather than silently doing nothing.
 
 ### Starting and stopping with the helmet
 

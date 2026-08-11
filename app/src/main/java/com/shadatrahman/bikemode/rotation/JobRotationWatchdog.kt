@@ -8,11 +8,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.provider.Settings
 import androidx.core.content.getSystemService
-import com.shadatrahman.bikemode.bluetooth.BluetoothController
-import com.shadatrahman.bikemode.data.PreferencesRepository
-import com.shadatrahman.bikemode.display.DisplayController
-import com.shadatrahman.bikemode.display.SensorAmbientLight
-import com.shadatrahman.bikemode.media.MediaPauseController
 import com.shadatrahman.bikemode.widget.BikeModeWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -76,15 +71,8 @@ class RotationWatchdogJobService : JobService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onStartJob(params: JobParameters?): Boolean {
-        val manager = BikeModeManager(
-            store = PreferencesRepository(applicationContext),
-            settings = RotationController(applicationContext),
-            watchdog = ServiceRotationWatchdog(applicationContext),
-            bluetooth = BluetoothController(applicationContext),
-            media = MediaPauseController(applicationContext),
-            display = DisplayController(applicationContext),
-            ambientLight = SensorAmbientLight(applicationContext),
-        )
+        // Spelled out here once, but it had drifted into an exact copy of the context constructor.
+        val manager = BikeModeManager(applicationContext)
         scope.launch {
             val stillActive = manager.reassert()
             if (stillActive) {

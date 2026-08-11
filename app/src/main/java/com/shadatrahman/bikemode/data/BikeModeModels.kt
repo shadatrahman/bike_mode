@@ -46,6 +46,8 @@ data class BikeModePreferences(
     val bikeModeActive: Boolean = false,
     val previous: SavedRotationState? = null,
     val previousDisplay: SavedDisplayState? = null,
+    /** The notification filter from before the ride. Null when Bike Mode silenced nothing. */
+    val previousInterruptionFilter: Int? = null,
     val firstLaunchCompleted: Boolean = false,
     /** Ask to turn Bluetooth on when the ride starts. Opt-out, since a helmet intercom is the norm. */
     val bluetoothOnEnable: Boolean = true,
@@ -59,4 +61,6 @@ data class BikeModePreferences(
     val boostBrightness: Boolean = false,
     /** Start and stop Bike Mode with the helmet. Opt-in: it changes when the app acts on its own. */
     val autoStartWithHelmet: Boolean = false,
+    /** Silence notifications while riding. Opt-in, and needs notification policy access first. */
+    val silenceNotifications: Boolean = false,
 )

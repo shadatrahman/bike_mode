@@ -48,17 +48,33 @@ class FakeBikeModeStore(
         state.update { it.copy(autoStartWithHelmet = enabled) }
     }
 
-    override suspend fun markActive(previous: SavedRotationState, previousDisplay: SavedDisplayState) {
+    override suspend fun setSilenceNotifications(enabled: Boolean) {
+        state.update { it.copy(silenceNotifications = enabled) }
+    }
+
+    override suspend fun markActive(
+        previous: SavedRotationState,
+        previousDisplay: SavedDisplayState,
+        previousInterruptionFilter: Int?,
+    ) {
         state.update {
             it.copy(
                 bikeModeActive = true,
                 previous = previous,
                 previousDisplay = previousDisplay.takeIf { saved -> !saved.isEmpty },
+                previousInterruptionFilter = previousInterruptionFilter,
             )
         }
     }
 
     override suspend fun markInactive() {
-        state.update { it.copy(bikeModeActive = false, previous = null, previousDisplay = null) }
+        state.update {
+            it.copy(
+                bikeModeActive = false,
+                previous = null,
+                previousDisplay = null,
+                previousInterruptionFilter = null,
+            )
+        }
     }
 }

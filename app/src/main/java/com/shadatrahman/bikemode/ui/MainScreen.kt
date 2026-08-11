@@ -66,6 +66,8 @@ fun MainScreen(
     onPauseMediaChange: (Boolean) -> Unit,
     onKeepScreenOnChange: (Boolean) -> Unit,
     onBoostBrightnessChange: (Boolean) -> Unit,
+    onSilenceNotificationsChange: (Boolean) -> Unit,
+    onGrantDoNotDisturb: () -> Unit,
     onOpenBluetooth: () -> Unit,
     onAddTile: () -> Unit,
     modifier: Modifier = Modifier,
@@ -81,6 +83,8 @@ fun MainScreen(
                 onPauseMediaChange = onPauseMediaChange,
                 onKeepScreenOnChange = onKeepScreenOnChange,
                 onBoostBrightnessChange = onBoostBrightnessChange,
+                onSilenceNotificationsChange = onSilenceNotificationsChange,
+                onGrantDoNotDisturb = onGrantDoNotDisturb,
                 onOpenBluetooth = onOpenBluetooth,
                 onAddTile = onAddTile,
             )
@@ -93,6 +97,8 @@ fun MainScreen(
                 onPauseMediaChange = onPauseMediaChange,
                 onKeepScreenOnChange = onKeepScreenOnChange,
                 onBoostBrightnessChange = onBoostBrightnessChange,
+                onSilenceNotificationsChange = onSilenceNotificationsChange,
+                onGrantDoNotDisturb = onGrantDoNotDisturb,
                 onOpenBluetooth = onOpenBluetooth,
                 onAddTile = onAddTile,
             )
@@ -109,6 +115,8 @@ private fun PortraitLayout(
     onPauseMediaChange: (Boolean) -> Unit,
     onKeepScreenOnChange: (Boolean) -> Unit,
     onBoostBrightnessChange: (Boolean) -> Unit,
+    onSilenceNotificationsChange: (Boolean) -> Unit,
+    onGrantDoNotDisturb: () -> Unit,
     onOpenBluetooth: () -> Unit,
     onAddTile: () -> Unit,
 ) {
@@ -148,6 +156,8 @@ private fun PortraitLayout(
             onPauseMediaChange = onPauseMediaChange,
             onKeepScreenOnChange = onKeepScreenOnChange,
             onBoostBrightnessChange = onBoostBrightnessChange,
+            onSilenceNotificationsChange = onSilenceNotificationsChange,
+            onGrantDoNotDisturb = onGrantDoNotDisturb,
             onOpenBluetooth = onOpenBluetooth,
         )
 
@@ -177,6 +187,8 @@ private fun LandscapeLayout(
     onPauseMediaChange: (Boolean) -> Unit,
     onKeepScreenOnChange: (Boolean) -> Unit,
     onBoostBrightnessChange: (Boolean) -> Unit,
+    onSilenceNotificationsChange: (Boolean) -> Unit,
+    onGrantDoNotDisturb: () -> Unit,
     onOpenBluetooth: () -> Unit,
     onAddTile: () -> Unit,
 ) {
@@ -239,6 +251,8 @@ private fun LandscapeLayout(
                 onPauseMediaChange = onPauseMediaChange,
                 onKeepScreenOnChange = onKeepScreenOnChange,
                 onBoostBrightnessChange = onBoostBrightnessChange,
+                onSilenceNotificationsChange = onSilenceNotificationsChange,
+                onGrantDoNotDisturb = onGrantDoNotDisturb,
                 onOpenBluetooth = onOpenBluetooth,
             )
             HorizontalDivider()
@@ -386,6 +400,8 @@ private fun RideSettings(
     onPauseMediaChange: (Boolean) -> Unit,
     onKeepScreenOnChange: (Boolean) -> Unit,
     onBoostBrightnessChange: (Boolean) -> Unit,
+    onSilenceNotificationsChange: (Boolean) -> Unit,
+    onGrantDoNotDisturb: () -> Unit,
     onOpenBluetooth: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -420,6 +436,30 @@ private fun RideSettings(
             enabled = state.boostBrightness,
             onEnabledChange = onBoostBrightnessChange,
         )
+
+        HorizontalDivider()
+
+        // Grouped with the display settings rather than the media one: like them it holds for the
+        // length of the ride and is handed back at the end, not fired once at the finish.
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            SwitchSection(
+                headingRes = R.string.silence_heading,
+                bodyRes = R.string.silence_body,
+                noteRes = R.string.silence_calls_note,
+                enabled = state.silenceNotifications && state.canSilenceNotifications,
+                onEnabledChange = { if (state.canSilenceNotifications) onSilenceNotificationsChange(it) },
+            )
+            if (!state.canSilenceNotifications) {
+                Text(
+                    text = stringResource(R.string.silence_permission_needed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedButton(onClick = onGrantDoNotDisturb, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.silence_permission_grant))
+                }
+            }
+        }
 
         HorizontalDivider()
 
@@ -475,6 +515,8 @@ private fun MainScreenOffPreview() {
             onPauseMediaChange = {},
             onKeepScreenOnChange = {},
             onBoostBrightnessChange = {},
+            onSilenceNotificationsChange = {},
+            onGrantDoNotDisturb = {},
             onOpenBluetooth = {},
             onAddTile = {},
         )
@@ -498,6 +540,8 @@ private fun MainScreenLandscapeRightPreview() {
             onPauseMediaChange = {},
             onKeepScreenOnChange = {},
             onBoostBrightnessChange = {},
+            onSilenceNotificationsChange = {},
+            onGrantDoNotDisturb = {},
             onOpenBluetooth = {},
             onAddTile = {},
         )
@@ -521,6 +565,8 @@ private fun MainScreenLandscapeLeftPreview() {
             onPauseMediaChange = {},
             onKeepScreenOnChange = {},
             onBoostBrightnessChange = {},
+            onSilenceNotificationsChange = {},
+            onGrantDoNotDisturb = {},
             onOpenBluetooth = {},
             onAddTile = {},
         )

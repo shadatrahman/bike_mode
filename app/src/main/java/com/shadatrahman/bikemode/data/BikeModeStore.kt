@@ -26,8 +26,14 @@ interface BikeModeStore {
 
     suspend fun setAutoStartWithHelmet(enabled: Boolean)
 
+    suspend fun setSilenceNotifications(enabled: Boolean)
+
     /** Records that Bike Mode is on, along with the state to restore when it goes off. */
-    suspend fun markActive(previous: SavedRotationState, previousDisplay: SavedDisplayState)
+    suspend fun markActive(
+        previous: SavedRotationState,
+        previousDisplay: SavedDisplayState,
+        previousInterruptionFilter: Int?,
+    )
 
     suspend fun markInactive()
 }

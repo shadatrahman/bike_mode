@@ -9,11 +9,13 @@ import com.shadatrahman.bikemode.data.FakeBikeModeStore
 import com.shadatrahman.bikemode.data.LandscapeDirection
 import com.shadatrahman.bikemode.data.SavedRotationState
 import com.shadatrahman.bikemode.display.AmbientLight
-import com.shadatrahman.bikemode.display.FakeAmbientLight
 import com.shadatrahman.bikemode.display.DisplaySettings
+import com.shadatrahman.bikemode.display.FakeAmbientLight
 import com.shadatrahman.bikemode.display.FakeDisplaySettings
 import com.shadatrahman.bikemode.media.FakeMediaPauser
 import com.shadatrahman.bikemode.media.MediaPauser
+import com.shadatrahman.bikemode.notifications.FakeInterruptionSettings
+import com.shadatrahman.bikemode.notifications.InterruptionSettings
 import com.shadatrahman.bikemode.rotation.RotationSettings.Companion.AUTO_ROTATE_OFF
 import com.shadatrahman.bikemode.rotation.RotationSettings.Companion.AUTO_ROTATE_ON
 import kotlinx.coroutines.test.runTest
@@ -38,7 +40,10 @@ class BikeModeManagerTest {
         media: MediaPauser = FakeMediaPauser(),
         display: DisplaySettings = FakeDisplaySettings(),
         ambientLight: AmbientLight = FakeAmbientLight(),
-    ) = BikeModeManager(store, settings, watchdog, bluetooth, media, display, ambientLight)
+        interruptions: InterruptionSettings = FakeInterruptionSettings(),
+    ) = BikeModeManager(
+        store, settings, watchdog, bluetooth, media, display, ambientLight, interruptions,
+    )
 
     @Test
     fun `enable turns off auto-rotate and pins the preferred landscape direction`() = runTest {
@@ -653,6 +658,114 @@ class BikeModeManagerTest {
         assertTrue(store.current().boostBrightness)
         assertEquals(15_000, display.timeout)
         assertNull(store.current().previousDisplay)
+    }
+
+    @Test
+    fun `enable silences notifications and disable hands the filter back`() = runTest {
+        val interruptions = FakeInterruptionSettings(filter = FakeInterruptionSettings.FILTER_ALL)
+        val store = FakeBikeModeStore(BikeModePreferences(silenceNotifications = true))
+        val manager = bikeModeManager(store, FakeRotationSettings(), interruptions = interruptions)
+
+        manager.enable()
+        assertEquals(FakeInterruptionSettings.FILTER_PRIORITY, interruptions.filter)
+
+        manager.disable()
+        assertEquals(FakeInterruptionSettings.FILTER_ALL, interruptions.filter)
+    }
+
+    @Test
+    fun `a rider already on Do Not Disturb gets it back, not silence undone`() = runTest {
+        val interruptions = FakeInterruptionSettings(filter = FakeInterruptionSettings.FILTER_ALARMS)
+        val store = FakeBikeModeStore(BikeModePreferences(silenceNotifications = true))
+        val manager = bikeModeManager(store, FakeRotationSettings(), interruptions = interruptions)
+        manager.enable()
+
+        manager.disable()
+
+        // Same contract as rotation: put back what they had, do not assume the default.
+        assertEquals(FakeInterruptionSettings.FILTER_ALARMS, interruptions.filter)
+    }
+
+    @Test
+    fun `notifications are left alone unless the rider opted in`() = runTest {
+        val interruptions = FakeInterruptionSettings(filter = FakeInterruptionSettings.FILTER_ALL)
+        val manager = bikeModeManager(
+            FakeBikeModeStore(), FakeRotationSettings(), interruptions = interruptions
+        )
+
+        manager.enable()
+
+        assertEquals(FakeInterruptionSettings.FILTER_ALL, interruptions.filter)
+    }
+
+    @Test
+    fun `disable does not touch a filter the rider set mid-ride themselves`() = runTest {
+        val interruptions = FakeInterruptionSettings(filter = FakeInterruptionSettings.FILTER_ALL)
+        val manager = bikeModeManager(
+            FakeBikeModeStore(), FakeRotationSettings(), interruptions = interruptions
+        )
+        manager.enable()
+
+        // Bike Mode never owned the filter, so their own Do Not Disturb must survive the ride.
+        interruptions.filter = FakeInterruptionSettings.FILTER_NONE
+
+        manager.disable()
+        assertEquals(FakeInterruptionSettings.FILTER_NONE, interruptions.filter)
+    }
+
+    @Test
+    fun `without policy access nothing is silenced and nothing is owed`() = runTest {
+        val interruptions = FakeInterruptionSettings(canControl = false)
+        val store = FakeBikeModeStore(BikeModePreferences(silenceNotifications = true))
+        val manager = bikeModeManager(store, FakeRotationSettings(), interruptions = interruptions)
+
+        assertTrue(manager.enable().isSuccess)
+
+        // The switch can read on before access is granted, so this must not pretend to have saved.
+        assertNull(store.current().previousInterruptionFilter)
+    }
+
+    @Test
+    fun `switching silence off mid-ride hands the filter straight back`() = runTest {
+        val interruptions = FakeInterruptionSettings(filter = FakeInterruptionSettings.FILTER_ALL)
+        val store = FakeBikeModeStore(BikeModePreferences(silenceNotifications = true))
+        val manager = bikeModeManager(store, FakeRotationSettings(), interruptions = interruptions)
+        manager.enable()
+
+        manager.setSilenceNotifications(false)
+
+        assertEquals(FakeInterruptionSettings.FILTER_ALL, interruptions.filter)
+        assertNull(store.current().previousInterruptionFilter)
+    }
+
+    @Test
+    fun `switching silence on mid-ride keeps what the display half is owed`() = runTest {
+        val display = FakeDisplaySettings(timeout = 15_000)
+        val interruptions = FakeInterruptionSettings(filter = FakeInterruptionSettings.FILTER_ALL)
+        val store = FakeBikeModeStore()
+        val manager = bikeModeManager(
+            store, FakeRotationSettings(), display = display, interruptions = interruptions
+        )
+        manager.enable()
+
+        manager.setSilenceNotifications(true)
+        assertEquals(FakeInterruptionSettings.FILTER_PRIORITY, interruptions.filter)
+
+        manager.disable()
+        // Both halves of what Bike Mode owes have to survive the other being rewritten.
+        assertEquals(15_000, display.timeout)
+        assertEquals(FakeInterruptionSettings.FILTER_ALL, interruptions.filter)
+    }
+
+    @Test
+    fun `a refused Do Not Disturb write still leaves Bike Mode on`() = runTest {
+        val interruptions = FakeInterruptionSettings().apply { failWrites = true }
+        val store = FakeBikeModeStore(BikeModePreferences(silenceNotifications = true))
+        val manager = bikeModeManager(store, FakeRotationSettings(), interruptions = interruptions)
+
+        assertTrue(manager.enable().isSuccess)
+
+        assertTrue(store.current().bikeModeActive)
     }
 
     @Test

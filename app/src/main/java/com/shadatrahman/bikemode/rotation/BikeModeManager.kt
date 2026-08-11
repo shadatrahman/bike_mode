@@ -16,6 +16,8 @@ import com.shadatrahman.bikemode.display.DisplaySettings
 import com.shadatrahman.bikemode.display.SensorAmbientLight
 import com.shadatrahman.bikemode.media.MediaPauseController
 import com.shadatrahman.bikemode.media.MediaPauser
+import com.shadatrahman.bikemode.notifications.InterruptionController
+import com.shadatrahman.bikemode.notifications.InterruptionSettings
 
 /**
  * Orchestrates the Bike Mode toggle: saves the rider's rotation state before locking landscape,
@@ -31,6 +33,7 @@ class BikeModeManager(
     private val media: MediaPauser,
     private val display: DisplaySettings,
     private val ambientLight: AmbientLight,
+    private val interruptions: InterruptionSettings,
 ) {
 
     constructor(context: Context) : this(
@@ -41,6 +44,7 @@ class BikeModeManager(
         media = MediaPauseController(context),
         display = DisplayController(context),
         ambientLight = SensorAmbientLight(context),
+        interruptions = InterruptionController(context),
     )
 
     /**
@@ -71,10 +75,13 @@ class BikeModeManager(
         // would overwrite it with Bike Mode's own values and lose what we owe the user.
         val previous = prefs.previous.takeIf { prefs.bikeModeActive } ?: settings.readState()
         val previousDisplay = prefs.previousDisplay.takeIf { prefs.bikeModeActive } ?: captureDisplay(prefs)
+        val previousInterruption = prefs.previousInterruptionFilter.takeIf { prefs.bikeModeActive }
+            ?: captureInterruption(prefs)
         return settings.applyBikeMode(prefs.direction)
             .onSuccess {
-                store.markActive(previous, previousDisplay)
+                store.markActive(previous, previousDisplay, previousInterruption)
                 applyDisplay(prefs)
+                if (prefs.silenceNotifications) interruptions.apply()
                 watchdog.start()
                 if (requestBluetooth && prefs.bluetoothOnEnable) raiseBluetooth()
             }
@@ -84,6 +91,13 @@ class BikeModeManager(
      * Only the settings Bike Mode is about to change are captured; the rest stay null so [disable]
      * knows it owes the rider nothing for them.
      */
+    /**
+     * Null unless Bike Mode is actually going to silence anything, so [disable] knows it owes the
+     * rider nothing and leaves a filter they set themselves alone.
+     */
+    private fun captureInterruption(prefs: BikeModePreferences): Int? =
+        interruptions.current().takeIf { prefs.silenceNotifications && interruptions.canControl }
+
     private fun captureDisplay(prefs: BikeModePreferences) = SavedDisplayState(
         screenOffTimeout = display.screenOffTimeout().takeIf { prefs.keepScreenOn },
         brightness = display.brightness().takeIf { prefs.boostBrightness },
@@ -120,6 +134,7 @@ class BikeModeManager(
                 // Before markInactive clears what we owe: the rider gets their screen back even if
                 // the display writes fail, since a stuck-awake screen is worse than a failed lock.
                 display.restore(prefs.previousDisplay)
+                interruptions.restore(prefs.previousInterruptionFilter)
                 store.markInactive()
                 watchdog.stop()
                 // Every off switch — app, tile, widget, notification — lands here, so the media
@@ -205,11 +220,30 @@ class BikeModeManager(
 
     suspend fun setAutoStartWithHelmet(enabled: Boolean) = store.setAutoStartWithHelmet(enabled)
 
+    /** Like the display settings, this takes effect at once and hands back at once. */
+    suspend fun setSilenceNotifications(enabled: Boolean) {
+        store.setSilenceNotifications(enabled)
+        if (!isActive() || !interruptions.canControl) return
+        val prefs = store.current()
+        if (enabled) {
+            rememberRide(prefs.previousDisplay, interruptions.current())
+            interruptions.apply()
+        } else {
+            interruptions.restore(prefs.previousInterruptionFilter)
+            rememberRide(prefs.previousDisplay, null)
+        }
+    }
+
     /** Rewrites what Bike Mode owes the rider without disturbing the rotation half of it. */
     private suspend fun rememberDisplay(edit: (SavedDisplayState) -> SavedDisplayState) {
         val prefs = store.current()
+        rememberRide(edit(prefs.previousDisplay ?: SavedDisplayState()), prefs.previousInterruptionFilter)
+    }
+
+    private suspend fun rememberRide(display: SavedDisplayState?, interruption: Int?) {
+        val prefs = store.current()
         val rotation = prefs.previous ?: settings.readState()
-        store.markActive(rotation, edit(prefs.previousDisplay ?: SavedDisplayState()))
+        store.markActive(rotation, display ?: SavedDisplayState(), interruption)
     }
 
     /**

@@ -41,6 +41,11 @@
     <string name="auto_start_body">Bike Mode turns itself on when your helmet connects and off when it disconnects, with no tap at all.</string>
     <string name="auto_start_association_note">Android asks you to pair Bike Mode with the helmet once, so it may wake the app when the helmet is near. Switch the helmet on first — the system has to find it to complete that step.</string>
     <string name="auto_start_needs_device">Choose a helmet above first.</string>
+    <string name="silence_heading">Silence notifications</string>
+    <string name="silence_body">Holds Do Not Disturb for the ride, so message tones do not go off in your helmet. Navigation still speaks — voice guidance is media, which Do Not Disturb never touches.</string>
+    <string name="silence_calls_note">Urgent calls still get through: anyone who rings twice within 15 minutes, and your starred contacts. Your own Do Not Disturb setting is put back when the ride ends.</string>
+    <string name="silence_permission_needed">Bike Mode needs Do Not Disturb access before it can silence anything.</string>
+    <string name="silence_permission_grant">Allow Do Not Disturb access</string>
     <string name="media_pause_heading">Pause media when you stop</string>
     <string name="media_pause_body">Turning Bike Mode off pauses whatever is playing, so nothing keeps going in a helmet you have taken off.</string>
     <string name="media_pause_scope_note">Android pauses whichever app holds the media session; it cannot pause one audio output on its own.</string>

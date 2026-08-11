@@ -65,11 +65,20 @@ class PreferencesRepository(context: Context) : BikeModeStore {
         dataStore.edit { it[KEY_AUTO_START_WITH_HELMET] = enabled }
     }
 
-    override suspend fun markActive(previous: SavedRotationState, previousDisplay: SavedDisplayState) {
+    override suspend fun setSilenceNotifications(enabled: Boolean) {
+        dataStore.edit { it[KEY_SILENCE_NOTIFICATIONS] = enabled }
+    }
+
+    override suspend fun markActive(
+        previous: SavedRotationState,
+        previousDisplay: SavedDisplayState,
+        previousInterruptionFilter: Int?,
+    ) {
         dataStore.edit {
             it[KEY_ACTIVE] = true
             it[KEY_PREV_ACCELEROMETER_ROTATION] = previous.accelerometerRotation
             it[KEY_PREV_USER_ROTATION] = previous.userRotation
+            it.putOrRemove(KEY_PREV_INTERRUPTION_FILTER, previousInterruptionFilter)
             // A null field means Bike Mode is not changing that setting, so there is nothing owed
             // back and the key must go rather than keep a stale value from an earlier ride.
             it.putOrRemove(KEY_PREV_SCREEN_OFF_TIMEOUT, previousDisplay.screenOffTimeout)
@@ -86,6 +95,7 @@ class PreferencesRepository(context: Context) : BikeModeStore {
             it.remove(KEY_PREV_SCREEN_OFF_TIMEOUT)
             it.remove(KEY_PREV_BRIGHTNESS)
             it.remove(KEY_PREV_BRIGHTNESS_MODE)
+            it.remove(KEY_PREV_INTERRUPTION_FILTER)
         }
     }
 
@@ -114,6 +124,8 @@ class PreferencesRepository(context: Context) : BikeModeStore {
             // Opt-in, so absent means off rather than on.
             boostBrightness = this[KEY_BOOST_BRIGHTNESS] == true,
             autoStartWithHelmet = this[KEY_AUTO_START_WITH_HELMET] == true,
+            silenceNotifications = this[KEY_SILENCE_NOTIFICATIONS] == true,
+            previousInterruptionFilter = this[KEY_PREV_INTERRUPTION_FILTER],
             previousDisplay = SavedDisplayState(
                 screenOffTimeout = this[KEY_PREV_SCREEN_OFF_TIMEOUT],
                 brightness = this[KEY_PREV_BRIGHTNESS],
@@ -140,6 +152,8 @@ class PreferencesRepository(context: Context) : BikeModeStore {
         val KEY_PREV_SCREEN_OFF_TIMEOUT = intPreferencesKey("previous_screen_off_timeout")
         val KEY_PREV_BRIGHTNESS = intPreferencesKey("previous_brightness")
         val KEY_PREV_BRIGHTNESS_MODE = intPreferencesKey("previous_brightness_mode")
+        val KEY_SILENCE_NOTIFICATIONS = booleanPreferencesKey("silence_notifications")
+        val KEY_PREV_INTERRUPTION_FILTER = intPreferencesKey("previous_interruption_filter")
         val KEY_HELMET_ADDRESS = stringPreferencesKey("helmet_address")
         val KEY_HELMET_NAME = stringPreferencesKey("helmet_name")
     }
