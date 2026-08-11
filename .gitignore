@@ -13,3 +13,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Signing material: never in the repository. See README for how to create these.
+/keystore.properties
+*.jks
+*.keystore

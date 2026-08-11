@@ -2,7 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Sole special permission: used only to toggle auto-rotate and pin screen orientation. -->
+    <!--
+        The permission the whole app rests on: auto-rotate and screen orientation, and since the
+        display settings arrived, screen timeout and brightness too. Special access, granted only
+        on a system screen — see PermissionManager, which never tries to work around it.
+    -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
 
     <!-- Keeps the rotation watchdog resident while Bike Mode is on, and only then. -->

@@ -68,22 +68,42 @@ Every form shows which way the screen will turn, taken from the remembered prefe
 
 ```
 Swipe down → Tap Bike Mode → Mount phone → Ride
-Swipe down → Tap Bike Mode → Normal rotation restored
+Swipe down → Tap Bike Mode → Everything put back
 ```
+
+Or with no tap at all, once a helmet is chosen and auto-start is on:
+
+```
+Put helmet on  → helmet connects → ride starts
+Take helmet off → helmet drops    → ride ends, media pauses
+```
+
+Starting a ride locks landscape, and then — for whichever switches are on — raises Bluetooth, holds the screen awake, brightens it if the light sensor says it is daylight, silences notifications, and starts watching for the helmet. Ending one puts every last piece of that back exactly as it was.
 
 ## Privacy
 
 Collects nothing. No analytics, no ads, no account, no location, no network access. Works fully offline.
 
-## Permission
+## Permissions
 
-One special permission only:
+Two are special access, granted by the rider on a system screen and never requestable at runtime. Both are optional except the first, and the app never tries to work around either screen.
 
-```xml
-<uses-permission android:name="android.permission.WRITE_SETTINGS" />
-```
+| Permission | Used for |
+|---|---|
+| `WRITE_SETTINGS` | auto-rotate, screen orientation, screen timeout, brightness — the whole feature set rests on this one |
+| `ACCESS_NOTIFICATION_POLICY` | holding Do Not Disturb for the ride. A marker: declaring it is what lets the rider grant the access |
 
-Used solely to toggle Android's auto-rotate and set a fixed screen orientation. The app never tries to bypass the system permission screen.
+The rest are ordinary declarations, each tied to one switch:
+
+| Permission | Used for |
+|---|---|
+| `BLUETOOTH_CONNECT` | reading paired devices and showing the system turn-on dialog. Never scans for, pairs with or talks to a device |
+| `FOREGROUND_SERVICE`, `..._SPECIAL_USE` | keeping the rotation watchdog resident while a ride is on |
+| `POST_NOTIFICATIONS` | the ongoing "Bike Mode on" status, which is also the off switch |
+| `RECEIVE_BOOT_COMPLETED` | re-arming the watchdog after a restart, since rotation settings outlive a reboot but jobs do not |
+| `REQUEST_OBSERVE_COMPANION_DEVICE_PRESENCE` and the two companion `REQUEST_*` permissions | starting and stopping a ride with the helmet |
+
+Nothing here touches location, the camera, contacts, storage or the network. Battery level, charge state and ambient light need no permission at all.
 
 ## Known Limitation
 
@@ -195,13 +215,37 @@ This is the only mechanism that can do it. A manifest-registered `ACL_CONNECTED`
 
 Association is a one-time system dialog, filtered by `BluetoothDeviceFilter.setAddress()` to the helmet already chosen in the app, so the rider does not pick twice. Changing or clearing the helmet disassociates the old one, so nothing stale can keep waking the app.
 
+## What has actually been ridden with
+
+Unit tests cover the rules; they cannot tell you whether Android did what it was asked. Everything below is about behaviour observed on a Nothing Phone (2a), and it is tracked because a setting that silently fails to restore is worse at 50km/h than a feature that was never built.
+
+**Confirmed on the phone**
+
+| Behaviour | |
+|---|---|
+| Landscape lock, and the watchdog re-applying it after another app rewrites rotation | ✅ |
+| Bluetooth turn-on dialog when a ride starts | ✅ |
+| Companion association with the helmet | ✅ |
+| `onDeviceAppeared` starting a ride when the helmet connects | ✅ |
+| Daylight gate crossing both thresholds mid-ride | ✅ |
+| Media pausing when the ride ends | ✅ |
+
+**Not yet verified**
+
+| Behaviour | What to watch for |
+|---|---|
+| Screen timeout applied, and the rider's own put back | note the timeout first, ride, end, check it returned |
+| Do Not Disturb leaving navigation audible | **the assumption the feature rests on** — if voice guidance is silenced too, it needs rethinking rather than tuning |
+| Battery guard easing off | no bike needed: `adb shell dumpsys battery set level 8` |
+| The RFCOMM nudge waking an intercom | best-effort by design; may do nothing on a given headset |
+
 ## Roadmap
 
 **MVP (P0)** — permission flow, enable/disable Bike Mode, landscape 90°/270°, previous-state restore, Quick Settings tile with active/inactive states, DataStore-persisted landscape preference, offline operation, Nothing Phone (2a) road testing.
 
 **P1** — haptic feedback, dynamic shortcut, Material You theming, AMOLED dark mode. *(Home-screen widget, persistent notification and reboot restore shipped.)*
 
-**P2 (exploratory)** — auto-enable on motorcycle Bluetooth connect; launch a preferred navigation app on activation.
+**P2 (exploratory)** — ~~auto-enable on motorcycle Bluetooth connect~~ *(shipped)*; launch a preferred navigation app on activation — blocked for the automatic path, since Android's background-activity-launch rules do not exempt a companion device service.
 
 ## Success Metric
 
@@ -214,8 +258,51 @@ Not downloads, not engagement:
 ## Build
 
 ```bash
-./gradlew assembleDebug
+./gradlew assembleDebug        # 31 MB, debug-signed, installs straight away
 ./gradlew installDebug
+./gradlew testDebugUnitTest lintDebug
 ```
+
+A release build shrinks with R8 — 31 MB down to about 2.2 MB, since the whole artifact is the download here rather than a Play delivery:
+
+```bash
+./gradlew assembleRelease
+```
+
+## Signing
+
+Not distributed through Play, so there is no Play App Signing to fall back on: the APK is signed with a key you hold, and losing it means no upgrade path for anyone who installed an earlier one. Keep the keystore backed up somewhere other than this machine.
+
+```bash
+keytool -genkeypair -v -keystore release.jks -alias bikemode \
+        -keyalg RSA -keysize 4096 -validity 10000
+```
+
+Then a `keystore.properties` beside `settings.gradle.kts`, which is gitignored along with `*.jks`:
+
+```properties
+storeFile=/absolute/path/to/release.jks
+storePassword=…
+keyAlias=bikemode
+keyPassword=…
+```
+
+The build reads that file locally and the equivalent environment variables (`KEYSTORE_FILE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`) in CI. **With neither, `assembleRelease` still succeeds and produces an unsigned APK** — which Android will refuse to install. That is deliberate: an unsigned build is an honest outcome, a build that fails obscurely is not.
+
+## Releasing
+
+Tagging is the whole process. Pushing a `v*` tag builds, tests, lints, signs and publishes a GitHub release with the APK attached:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+For CI to sign, add four repository secrets — `KEYSTORE_BASE64` (`base64 -i release.jks`), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. Without them the release still publishes, and its notes say the APK is unsigned rather than leaving anyone to discover it at install time.
+
+`versionCode` in `app/build.gradle.kts` has to go up before each release; Android refuses to install an APK over a newer one.
+
+## CI
+
+`.github/workflows/ci.yml` runs `assembleDebug testDebugUnitTest lintDebug` on every push to `main` and every pull request, and uploads the test and lint reports when something fails. Lint is configured to fail the build on errors, so a `MissingPermission` slip cannot reach a release.
 
 Full specification: [`docs/Product Requirements Document — Bike Rotation Lock.md`](docs/Product%20Requirements%20Document%20—%20Bike%20Rotation%20Lock.md)
