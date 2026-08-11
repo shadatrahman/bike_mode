@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.util.Log
 import androidx.core.content.getSystemService
 import com.shadatrahman.bikemode.data.PairedDevice
+import com.shadatrahman.bikemode.util.reportingFailure
 
 /**
  * Managing the system association that [HelmetPresenceService] is woken for.
@@ -26,11 +27,12 @@ class HelmetAssociation(context: Context) {
     private val manager get() = appContext.getSystemService<CompanionDeviceManager>()
 
     /** Whether [device] is already associated, so the UI can offer the right action. */
-    fun isAssociated(device: PairedDevice): Boolean = runCatching {
-        manager?.myAssociations.orEmpty().any {
-            it.deviceMacAddress?.toString().equals(device.address, ignoreCase = true)
+    fun isAssociated(device: PairedDevice): Boolean =
+        reportingFailure(TAG, "Reading existing associations", false) {
+            manager?.myAssociations.orEmpty().any {
+                it.deviceMacAddress?.toString().equals(device.address, ignoreCase = true)
+            }
         }
-    }.getOrDefault(false)
 
     /**
      * Asks the system to show its association dialog. The result arrives on [onPending] as an
@@ -74,18 +76,29 @@ class HelmetAssociation(context: Context) {
         onFailure(reason)
     }
 
-    /** Begins watching, so the system starts binding [HelmetPresenceService] on arrival. */
+    /**
+     * Begins watching, so the system starts binding [HelmetPresenceService] on arrival.
+     *
+     * The worst failure in this class to lose quietly: association has already succeeded and the
+     * switch reads on, so a rider whose helmet never starts a ride would have nothing at all to go
+     * on. Reported loudly, and confirmed when it takes, so logcat shows which of the two happened.
+     */
     fun startObserving(device: PairedDevice) {
-        runCatching { manager?.startObservingDevicePresence(device.address) }
+        reportingFailure(TAG, "Observing ${device.address}", Unit) {
+            manager?.startObservingDevicePresence(device.address)
+            Log.i(TAG, "Now watching for ${device.address}")
+        }
     }
 
     fun stopObserving(device: PairedDevice) {
-        runCatching { manager?.stopObservingDevicePresence(device.address) }
+        reportingFailure(TAG, "Ending observation of ${device.address}", Unit) {
+            manager?.stopObservingDevicePresence(device.address)
+        }
     }
 
     /** Dropping the choice should drop the system's permission to wake us for it as well. */
     fun forget(device: PairedDevice) {
-        runCatching {
+        reportingFailure(TAG, "Disassociating ${device.address}", Unit) {
             manager?.myAssociations.orEmpty()
                 .filter { it.deviceMacAddress?.toString().equals(device.address, ignoreCase = true) }
                 .forEach { manager?.disassociate(it.id) }

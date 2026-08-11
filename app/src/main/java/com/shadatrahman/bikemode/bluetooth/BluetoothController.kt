@@ -3,7 +3,9 @@ package com.shadatrahman.bikemode.bluetooth
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.core.content.getSystemService
+import com.shadatrahman.bikemode.util.reportingFailure
 
 /** [BluetoothRequester] backed by the real adapter. */
 class BluetoothController(context: Context) : BluetoothRequester {
@@ -17,7 +19,8 @@ class BluetoothController(context: Context) : BluetoothRequester {
      * Treating that as "off" is the useful answer: it sends us to [requestEnable], which asks for
      * the permission and then quietly finishes if Bluetooth turns out to be on already.
      */
-    override fun isEnabled(): Boolean = runCatching { adapter?.isEnabled == true }.getOrDefault(false)
+    override fun isEnabled(): Boolean =
+        reportingFailure(TAG, "Reading whether Bluetooth is on", false) { adapter?.isEnabled == true }
 
     /**
      * Routed through [BluetoothRequestActivity] because the request is an activity and most taps
@@ -25,12 +28,21 @@ class BluetoothController(context: Context) : BluetoothRequester {
      * A background-start refusal is survivable — Bike Mode itself is already on either way.
      */
     override fun requestEnable() {
-        if (adapter == null) return
-        runCatching {
+        if (adapter == null) {
+            Log.i(TAG, "Not asking to turn Bluetooth on: this device has no adapter")
+            return
+        }
+        // A background-start refusal is the expected failure and is survivable — Bike Mode itself
+        // is on either way — but it is also exactly why the dialog would fail to appear, so say so.
+        reportingFailure(TAG, "Showing the turn-on dialog", Unit) {
             appContext.startActivity(
                 Intent(appContext, BluetoothRequestActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         }
+    }
+
+    private companion object {
+        const val TAG = "BluetoothController"
     }
 }

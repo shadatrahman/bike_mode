@@ -6,9 +6,11 @@ import android.bluetooth.BluetoothManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.getSystemService
+import com.shadatrahman.bikemode.util.reportingFailure
 
 /**
  * Invisible trampoline that hosts the system "turn on Bluetooth?" dialog.
@@ -40,12 +42,24 @@ class BluetoothRequestActivity : ComponentActivity() {
     /** No adapter, or Bluetooth already on, means there is nothing to ask and nothing to show. */
     private fun askToEnable() {
         val adapter = getSystemService<BluetoothManager>()?.adapter
-        val alreadyOn = runCatching { adapter?.isEnabled == true }.getOrDefault(true)
+        // Defaulting to "already on" when the state cannot be read keeps a phone that refuses the
+        // question from being asked to turn on something that may well be on.
+        val alreadyOn = reportingFailure(TAG, "Reading whether Bluetooth is on", true) {
+            adapter?.isEnabled == true
+        }
         if (adapter == null || alreadyOn) {
             finish()
             return
         }
-        runCatching { enableLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)) }
-            .onFailure { finish() }
+        try {
+            enableLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not show the turn-on dialog: ${e.javaClass.simpleName}: ${e.message}")
+            finish()
+        }
+    }
+
+    private companion object {
+        const val TAG = "BluetoothRequest"
     }
 }
