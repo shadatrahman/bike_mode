@@ -56,6 +56,12 @@ While Bike Mode is active, a JobScheduler content trigger watches the two rotati
 
 A rotation that is already correct is never rewritten, so the watchdog cannot fight an app that owns the screen.
 
+## Home-Screen Widget
+
+A resizable widget toggles Bike Mode with one tap, styled to sit beside Nothing OS's own: pure black when off, Nothing red when on, monospaced uppercase with wide tracking, and the platform widget corner radius.
+
+Dragging a corner crosses real breakpoints rather than stretching one design — a one-row form shows the glyph and state, a square form adds the label, and wider forms add the locked direction.
+
 ## Ride Flow
 
 ```
@@ -110,7 +116,7 @@ app
 
 **MVP (P0)** — permission flow, enable/disable Bike Mode, landscape 90°/270°, previous-state restore, Quick Settings tile with active/inactive states, DataStore-persisted landscape preference, offline operation, Nothing Phone (2a) road testing.
 
-**P1** — home-screen widget, persistent notification while active, restore after reboot, haptic feedback, dynamic shortcut, Material You theming, AMOLED dark mode.
+**P1** — persistent notification while active, restore after reboot, haptic feedback, dynamic shortcut, Material You theming, AMOLED dark mode. *(Home-screen widget shipped.)*
 
 **P2 (exploratory)** — auto-enable on motorcycle Bluetooth connect; launch a preferred navigation app on activation.
 

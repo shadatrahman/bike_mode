@@ -11,6 +11,7 @@ import com.shadatrahman.bikemode.data.LandscapeDirection
 import com.shadatrahman.bikemode.data.PreferencesRepository
 import com.shadatrahman.bikemode.rotation.BikeModeManager
 import com.shadatrahman.bikemode.util.PermissionManager
+import com.shadatrahman.bikemode.widget.BikeModeWidgetProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -61,6 +62,7 @@ class MainViewModel(
             manager.toggle()
                 .onSuccess { active -> _uiState.update { it.copy(bikeModeActive = active, showError = false) } }
                 .onFailure { _uiState.update { it.copy(showError = true) } }
+            BikeModeWidgetProvider.refresh(application)
         }
     }
 
@@ -68,6 +70,7 @@ class MainViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(direction = direction) }
             manager.setDirection(direction).onFailure { _uiState.update { it.copy(showError = true) } }
+            BikeModeWidgetProvider.refresh(application)
         }
     }
 

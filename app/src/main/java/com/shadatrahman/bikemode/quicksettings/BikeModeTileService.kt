@@ -11,6 +11,7 @@ import com.shadatrahman.bikemode.MainActivity
 import com.shadatrahman.bikemode.R
 import com.shadatrahman.bikemode.rotation.BikeModeManager
 import com.shadatrahman.bikemode.util.PermissionManager
+import com.shadatrahman.bikemode.widget.BikeModeWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -58,6 +59,7 @@ class BikeModeTileService : TileService() {
             manager.toggle()
                 .onFailure { Toast.makeText(this@BikeModeTileService, R.string.error_system_rejected, Toast.LENGTH_LONG).show() }
             refreshTile()
+            BikeModeWidgetProvider.refresh(applicationContext)
         }
     }
 

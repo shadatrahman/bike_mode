@@ -9,6 +9,7 @@ import android.content.Context
 import android.provider.Settings
 import androidx.core.content.getSystemService
 import com.shadatrahman.bikemode.data.PreferencesRepository
+import com.shadatrahman.bikemode.widget.BikeModeWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -76,6 +77,9 @@ class RotationWatchdogJobService : JobService() {
             val stillActive = manager.reassert()
             // Re-arm only while Bike Mode is on; turning it off leaves no job behind.
             if (stillActive) JobRotationWatchdog.schedule(applicationContext)
+            // This also fires when the rider re-enables auto-rotate from the system Quick
+            // Settings, which ends Bike Mode behind our back — the widget has to follow.
+            BikeModeWidgetProvider.refresh(applicationContext)
             jobFinished(params, false)
         }
         return true

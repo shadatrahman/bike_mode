@@ -30,6 +30,15 @@
     <string name="quick_settings_add">Add Quick Settings tile</string>
     <string name="third_party_note">Some apps enforce their own screen orientation and may ignore the system rotation lock.</string>
 
+    <!-- Home-screen widget -->
+    <string name="widget_label">BIKE MODE</string>
+    <string name="widget_state_on">ON</string>
+    <string name="widget_state_off">OFF</string>
+    <string name="widget_detail_off">TAP TO LOCK</string>
+    <string name="widget_detail_left">LANDSCAPE LEFT</string>
+    <string name="widget_detail_right">LANDSCAPE RIGHT</string>
+    <string name="widget_description">Lock the screen to landscape with one tap.</string>
+
     <!-- Errors -->
     <string name="error_system_rejected">Your device prevented Bike Rotation Lock from changing the screen orientation.</string>
     <string name="error_try_again">Try Again</string>

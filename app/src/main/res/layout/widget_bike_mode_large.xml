@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wide and tall forms (4x2 and up). Adds the direction and a tap hint. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg_off"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="20dp"
+    android:paddingVertical="16dp">
+
+    <ImageView
+        android:id="@+id/widget_icon"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:contentDescription="@string/app_name"
+        android:src="@drawable/ic_bike_mode" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widget_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.22"
+            android:maxLines="1"
+            android:text="@string/widget_label"
+            android:textColor="@color/widget_foreground_dim"
+            android:textSize="10sp" />
+
+        <TextView
+            android:id="@+id/widget_state"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.16"
+            android:maxLines="1"
+            android:text="@string/widget_state_off"
+            android:textColor="@color/widget_foreground"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_detail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.14"
+            android:maxLines="1"
+            android:text="@string/widget_detail_off"
+            android:textColor="@color/widget_foreground_dim"
+            android:textSize="11sp" />
+    </LinearLayout>
+</LinearLayout>

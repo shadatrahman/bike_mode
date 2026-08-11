@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Freely resizable in both directions, so the Nothing OS corner drag works and the widget can be
+  pulled anywhere between one cell tall and a full square. updatePeriodMillis is 0 because state
+  only changes when something toggles Bike Mode, and polling would cost battery for nothing.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/widget_bike_mode_large"
+    android:maxResizeHeight="320dp"
+    android:maxResizeWidth="320dp"
+    android:minHeight="40dp"
+    android:minResizeHeight="40dp"
+    android:minResizeWidth="110dp"
+    android:minWidth="110dp"
+    android:previewLayout="@layout/widget_bike_mode_large"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellHeight="2"
+    android:targetCellWidth="2"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

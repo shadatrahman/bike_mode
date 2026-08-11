@@ -26,6 +26,18 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".widget.BikeModeWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/bike_mode_widget_info" />
+        </receiver>
+
         <!-- Woken by the system only when a rotation setting changes; never resident. -->
         <service
             android:name=".rotation.RotationWatchdogJobService"
