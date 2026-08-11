@@ -26,6 +26,12 @@
             </intent-filter>
         </activity>
 
+        <!-- Woken by the system only when a rotation setting changes; never resident. -->
+        <service
+            android:name=".rotation.RotationWatchdogJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
         <service
             android:name=".quicksettings.BikeModeTileService"
             android:exported="true"

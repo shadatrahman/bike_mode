@@ -21,11 +21,20 @@ class FakeRotationSettings(
     /** Simulates a device that refuses the write, e.g. revoked WRITE_SETTINGS. */
     var failWrites = false
 
+    var applyCount = 0
+        private set
+
+    /** Stands in for the system or another app rewriting the settings behind Bike Mode's back. */
+    fun rewrittenExternallyTo(newState: SavedRotationState) {
+        state = newState
+    }
+
     override fun readState(): SavedRotationState = state
 
     override fun isAutoRotateEnabled(): Boolean = state.accelerometerRotation == AUTO_ROTATE_ON
 
     override fun applyBikeMode(direction: LandscapeDirection): Result<Unit> = write {
+        applyCount++
         state = SavedRotationState(AUTO_ROTATE_OFF, direction.surfaceRotation)
     }
 

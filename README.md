@@ -48,6 +48,14 @@ Turning Bike Mode off restores whatever the user had before — it does not blin
 
 The app changes settings and exits. No foreground service, no polling, no accelerometer reads, no wake locks — effectively zero ongoing battery cost.
 
+### Keeping the lock
+
+Android rewrites `USER_ROTATION` back to 0 when a portrait-locked app takes the foreground — pressing home is enough. Left alone, Bike Mode would still report itself as on while the screen no longer held landscape.
+
+While Bike Mode is active, a JobScheduler content trigger watches the two rotation settings. The system wakes the app only when one of them actually changes; the app re-pins the rider's direction if it drifted, re-arms the trigger, and exits. Nothing polls and nothing stays resident. The trigger is cancelled the moment Bike Mode goes off. Returning to the app or opening Quick Settings repairs drift the same way.
+
+A rotation that is already correct is never rewritten, so the watchdog cannot fight an app that owns the screen.
+
 ## Ride Flow
 
 ```

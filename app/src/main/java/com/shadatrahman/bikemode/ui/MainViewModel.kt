@@ -43,11 +43,13 @@ class MainViewModel(
     fun refresh() {
         viewModelScope.launch {
             val hasPermission = PermissionManager.canWriteSettings(application)
+            // Coming back to the app also repairs a rotation another app knocked loose.
+            val active = hasPermission && manager.reassert()
             _uiState.update {
                 it.copy(
                     loading = false,
                     hasPermission = hasPermission,
-                    bikeModeActive = hasPermission && manager.isActive(),
+                    bikeModeActive = active,
                     direction = manager.preferences().direction,
                 )
             }

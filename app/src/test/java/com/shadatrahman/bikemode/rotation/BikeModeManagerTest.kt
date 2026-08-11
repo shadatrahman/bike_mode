@@ -2,6 +2,7 @@ package com.shadatrahman.bikemode.rotation
 
 import android.view.Surface
 import com.shadatrahman.bikemode.data.BikeModePreferences
+import com.shadatrahman.bikemode.data.BikeModeStore
 import com.shadatrahman.bikemode.data.FakeBikeModeStore
 import com.shadatrahman.bikemode.data.LandscapeDirection
 import com.shadatrahman.bikemode.data.SavedRotationState
@@ -15,16 +16,23 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Covers the restore contract from the PRD: disabling Bike Mode must put back whatever the rider
- * had before the ride, not blindly re-enable auto-rotate.
+ * Covers the restore contract from the PRD — disabling Bike Mode must put back whatever the rider
+ * had before the ride, not blindly re-enable auto-rotate — and the drift repair that keeps the
+ * pinned rotation from being quietly undone mid-ride.
  */
 class BikeModeManagerTest {
+
+    private fun bikeModeManager(
+        store: BikeModeStore,
+        settings: RotationSettings,
+        watchdog: RotationWatchdog = FakeRotationWatchdog(),
+    ) = BikeModeManager(store, settings, watchdog)
 
     @Test
     fun `enable turns off auto-rotate and pins the preferred landscape direction`() = runTest {
         val settings = FakeRotationSettings()
         val store = FakeBikeModeStore(BikeModePreferences(direction = LandscapeDirection.LEFT))
-        val manager = BikeModeManager(store, settings)
+        val manager = bikeModeManager(store, settings)
 
         assertTrue(manager.enable().isSuccess)
 
@@ -40,7 +48,7 @@ class BikeModeManagerTest {
             userRotation = Surface.ROTATION_0,
         )
         val store = FakeBikeModeStore()
-        val manager = BikeModeManager(store, settings)
+        val manager = bikeModeManager(store, settings)
 
         manager.enable()
 
@@ -54,7 +62,7 @@ class BikeModeManagerTest {
             userRotation = Surface.ROTATION_0,
         )
         val store = FakeBikeModeStore()
-        val manager = BikeModeManager(store, settings)
+        val manager = bikeModeManager(store, settings)
         manager.enable()
 
         assertTrue(manager.disable().isSuccess)
@@ -72,7 +80,7 @@ class BikeModeManagerTest {
             accelerometerRotation = AUTO_ROTATE_OFF,
             userRotation = Surface.ROTATION_0,
         )
-        val manager = BikeModeManager(FakeBikeModeStore(), settings)
+        val manager = bikeModeManager(FakeBikeModeStore(), settings)
         manager.enable()
 
         manager.disable()
@@ -88,7 +96,7 @@ class BikeModeManagerTest {
             userRotation = Surface.ROTATION_0,
         )
         val store = FakeBikeModeStore()
-        val manager = BikeModeManager(store, settings)
+        val manager = bikeModeManager(store, settings)
         manager.enable()
 
         manager.enable()
@@ -106,7 +114,7 @@ class BikeModeManagerTest {
             userRotation = Surface.ROTATION_270,
         )
         val store = FakeBikeModeStore(BikeModePreferences(bikeModeActive = true, previous = null))
-        val manager = BikeModeManager(store, settings)
+        val manager = bikeModeManager(store, settings)
 
         manager.disable()
 
@@ -118,7 +126,7 @@ class BikeModeManagerTest {
     fun `a failed enable leaves Bike Mode off and saves nothing`() = runTest {
         val settings = FakeRotationSettings().apply { failWrites = true }
         val store = FakeBikeModeStore()
-        val manager = BikeModeManager(store, settings)
+        val manager = bikeModeManager(store, settings)
 
         assertTrue(manager.enable().isFailure)
 
@@ -133,7 +141,7 @@ class BikeModeManagerTest {
             userRotation = Surface.ROTATION_0,
         )
         val store = FakeBikeModeStore()
-        val manager = BikeModeManager(store, settings)
+        val manager = bikeModeManager(store, settings)
         manager.enable()
         settings.failWrites = true
 
@@ -153,11 +161,11 @@ class BikeModeManagerTest {
     fun `isActive reports off and clears state when auto-rotate was re-enabled elsewhere`() = runTest {
         val settings = FakeRotationSettings()
         val store = FakeBikeModeStore()
-        val manager = BikeModeManager(store, settings)
+        val manager = bikeModeManager(store, settings)
         manager.enable()
 
         // Rider flips auto-rotate back on from the system Quick Settings.
-        settings.restore(SavedRotationState(AUTO_ROTATE_ON, Surface.ROTATION_90))
+        settings.rewrittenExternallyTo(SavedRotationState(AUTO_ROTATE_ON, Surface.ROTATION_90))
 
         assertFalse(manager.isActive())
         assertFalse(store.current().bikeModeActive)
@@ -167,9 +175,9 @@ class BikeModeManagerTest {
     @Test
     fun `a tap after external auto-rotate re-locks instead of restoring stale state`() = runTest {
         val settings = FakeRotationSettings(AUTO_ROTATE_OFF, Surface.ROTATION_0)
-        val manager = BikeModeManager(FakeBikeModeStore(), settings)
+        val manager = bikeModeManager(FakeBikeModeStore(), settings)
         manager.enable()
-        settings.restore(SavedRotationState(AUTO_ROTATE_ON, Surface.ROTATION_0))
+        settings.rewrittenExternallyTo(SavedRotationState(AUTO_ROTATE_ON, Surface.ROTATION_0))
 
         assertEquals(true, manager.toggle().getOrNull())
 
@@ -180,7 +188,7 @@ class BikeModeManagerTest {
     @Test
     fun `toggle turns Bike Mode on then restores the original state`() = runTest {
         val settings = FakeRotationSettings(AUTO_ROTATE_ON, Surface.ROTATION_0)
-        val manager = BikeModeManager(FakeBikeModeStore(), settings)
+        val manager = bikeModeManager(FakeBikeModeStore(), settings)
 
         assertEquals(true, manager.toggle().getOrNull())
         assertEquals(false, manager.toggle().getOrNull())
@@ -193,7 +201,7 @@ class BikeModeManagerTest {
     fun `changing direction while active re-applies immediately and survives restore`() = runTest {
         val settings = FakeRotationSettings(AUTO_ROTATE_ON, Surface.ROTATION_0)
         val store = FakeBikeModeStore()
-        val manager = BikeModeManager(store, settings)
+        val manager = bikeModeManager(store, settings)
         manager.enable()
 
         assertTrue(manager.setDirection(LandscapeDirection.LEFT).isSuccess)
@@ -211,12 +219,101 @@ class BikeModeManagerTest {
     fun `changing direction while off only persists the preference`() = runTest {
         val settings = FakeRotationSettings(AUTO_ROTATE_ON, Surface.ROTATION_0)
         val store = FakeBikeModeStore()
-        val manager = BikeModeManager(store, settings)
+        val manager = bikeModeManager(store, settings)
 
         manager.setDirection(LandscapeDirection.LEFT)
 
         assertEquals(LandscapeDirection.LEFT, store.current().direction)
         assertEquals(AUTO_ROTATE_ON, settings.state.accelerometerRotation)
         assertEquals(Surface.ROTATION_0, settings.state.userRotation)
+    }
+
+    @Test
+    fun `enable starts the drift watchdog and disable stops it`() = runTest {
+        val watchdog = FakeRotationWatchdog()
+        val manager = bikeModeManager(FakeBikeModeStore(), FakeRotationSettings(), watchdog)
+
+        manager.enable()
+        assertTrue(watchdog.running)
+
+        manager.disable()
+        assertFalse(watchdog.running)
+    }
+
+    @Test
+    fun `a failed enable does not leave the watchdog running`() = runTest {
+        val watchdog = FakeRotationWatchdog()
+        val settings = FakeRotationSettings().apply { failWrites = true }
+        val manager = bikeModeManager(FakeBikeModeStore(), settings, watchdog)
+
+        manager.enable()
+
+        assertFalse(watchdog.running)
+    }
+
+    @Test
+    fun `reassert re-pins the rotation after another app rewrote it`() = runTest {
+        val settings = FakeRotationSettings(AUTO_ROTATE_ON, Surface.ROTATION_0)
+        val manager = bikeModeManager(FakeBikeModeStore(), settings)
+        manager.enable()
+
+        // A portrait-locked app takes the foreground and the system rewrites USER_ROTATION to 0,
+        // leaving auto-rotate off: Bike Mode looks on but no longer holds landscape.
+        settings.rewrittenExternallyTo(SavedRotationState(AUTO_ROTATE_OFF, Surface.ROTATION_0))
+
+        assertTrue(manager.reassert())
+        assertEquals(AUTO_ROTATE_OFF, settings.state.accelerometerRotation)
+        assertEquals(Surface.ROTATION_270, settings.state.userRotation)
+    }
+
+    @Test
+    fun `reassert leaves an intact rotation alone`() = runTest {
+        val settings = FakeRotationSettings(AUTO_ROTATE_ON, Surface.ROTATION_0)
+        val manager = bikeModeManager(FakeBikeModeStore(), settings)
+        manager.enable()
+        val appliedByEnable = settings.applyCount
+
+        assertTrue(manager.reassert())
+
+        // No redundant write, so the watchdog cannot ping-pong with the app that owns the screen.
+        assertEquals(appliedByEnable, settings.applyCount)
+    }
+
+    @Test
+    fun `reassert keeps the state owed back to the rider`() = runTest {
+        val settings = FakeRotationSettings(AUTO_ROTATE_OFF, Surface.ROTATION_0)
+        val store = FakeBikeModeStore()
+        val manager = bikeModeManager(store, settings)
+        manager.enable()
+        settings.rewrittenExternallyTo(SavedRotationState(AUTO_ROTATE_OFF, Surface.ROTATION_0))
+
+        manager.reassert()
+        manager.disable()
+
+        // The rider had a portrait lock before the ride and still gets it back.
+        assertEquals(AUTO_ROTATE_OFF, settings.state.accelerometerRotation)
+        assertEquals(Surface.ROTATION_0, settings.state.userRotation)
+    }
+
+    @Test
+    fun `reassert reports inactive and stops watching when auto-rotate came back`() = runTest {
+        val watchdog = FakeRotationWatchdog()
+        val settings = FakeRotationSettings(AUTO_ROTATE_OFF, Surface.ROTATION_0)
+        val manager = bikeModeManager(FakeBikeModeStore(), settings, watchdog)
+        manager.enable()
+        settings.rewrittenExternallyTo(SavedRotationState(AUTO_ROTATE_ON, Surface.ROTATION_0))
+
+        assertFalse(manager.reassert())
+        assertFalse(watchdog.running)
+        assertEquals(AUTO_ROTATE_ON, settings.state.accelerometerRotation)
+    }
+
+    @Test
+    fun `reassert does nothing while Bike Mode is off`() = runTest {
+        val settings = FakeRotationSettings(AUTO_ROTATE_ON, Surface.ROTATION_0)
+        val manager = bikeModeManager(FakeBikeModeStore(), settings)
+
+        assertFalse(manager.reassert())
+        assertEquals(0, settings.applyCount)
     }
 }

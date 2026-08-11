@@ -41,7 +41,11 @@ class BikeModeTileService : TileService() {
 
     override fun onStartListening() {
         super.onStartListening()
-        refreshTile()
+        // Opening Quick Settings is a chance to repair a rotation another app knocked loose.
+        scope.launch {
+            if (PermissionManager.canWriteSettings(this@BikeModeTileService)) manager.reassert()
+            refreshTile()
+        }
     }
 
     override fun onClick() {
