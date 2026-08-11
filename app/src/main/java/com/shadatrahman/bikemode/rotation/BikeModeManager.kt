@@ -8,6 +8,8 @@ import com.shadatrahman.bikemode.data.BikeModeStore
 import com.shadatrahman.bikemode.data.LandscapeDirection
 import com.shadatrahman.bikemode.data.PairedDevice
 import com.shadatrahman.bikemode.data.PreferencesRepository
+import com.shadatrahman.bikemode.media.MediaPauseController
+import com.shadatrahman.bikemode.media.MediaPauser
 
 /**
  * Orchestrates the Bike Mode toggle: saves the rider's rotation state before locking landscape,
@@ -20,6 +22,7 @@ class BikeModeManager(
     private val settings: RotationSettings,
     private val watchdog: RotationWatchdog,
     private val bluetooth: BluetoothRequester,
+    private val media: MediaPauser,
 ) {
 
     constructor(context: Context) : this(
@@ -27,6 +30,7 @@ class BikeModeManager(
         settings = RotationController(context),
         watchdog = ServiceRotationWatchdog(context),
         bluetooth = BluetoothController(context),
+        media = MediaPauseController(context),
     )
 
     /**
@@ -70,6 +74,9 @@ class BikeModeManager(
             .onSuccess {
                 store.markInactive()
                 watchdog.stop()
+                // Every off switch — app, tile, widget, notification — lands here, so the media
+                // pause belongs here too rather than at each of them.
+                if (prefs.pauseMediaOnDisable) media.pause()
             }
     }
 
@@ -110,6 +117,9 @@ class BikeModeManager(
         store.setBluetoothOnEnable(enabled)
         if (enabled && isActive()) raiseBluetooth()
     }
+
+    /** Unlike the Bluetooth one, this has no immediate effect to show: it acts when the ride ends. */
+    suspend fun setPauseMediaOnDisable(enabled: Boolean) = store.setPauseMediaOnDisable(enabled)
 
     /**
      * Never lowers Bluetooth, only raises it, and only when it is actually down — so a rider who

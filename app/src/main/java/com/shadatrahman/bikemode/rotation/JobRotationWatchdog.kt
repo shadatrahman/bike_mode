@@ -10,6 +10,7 @@ import android.provider.Settings
 import androidx.core.content.getSystemService
 import com.shadatrahman.bikemode.bluetooth.BluetoothController
 import com.shadatrahman.bikemode.data.PreferencesRepository
+import com.shadatrahman.bikemode.media.MediaPauseController
 import com.shadatrahman.bikemode.widget.BikeModeWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -78,6 +79,7 @@ class RotationWatchdogJobService : JobService() {
             settings = RotationController(applicationContext),
             watchdog = ServiceRotationWatchdog(applicationContext),
             bluetooth = BluetoothController(applicationContext),
+            media = MediaPauseController(applicationContext),
         )
         scope.launch {
             val stillActive = manager.reassert()

@@ -32,6 +32,10 @@ class FakeBikeModeStore(
         state.update { it.copy(helmet = device) }
     }
 
+    override suspend fun setPauseMediaOnDisable(enabled: Boolean) {
+        state.update { it.copy(pauseMediaOnDisable = enabled) }
+    }
+
     override suspend fun markActive(previous: SavedRotationState) {
         state.update { it.copy(bikeModeActive = true, previous = previous) }
     }

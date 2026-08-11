@@ -28,6 +28,9 @@
     <string name="bluetooth_heading">Turn on Bluetooth</string>
     <string name="bluetooth_body">When Bike Mode starts, ask to switch Bluetooth on so a helmet intercom or earbuds connect.</string>
     <string name="bluetooth_one_way_note">Android has no way for an app to switch Bluetooth back off, so Bike Mode leaves it on when you stop.</string>
+    <string name="media_pause_heading">Pause media when you stop</string>
+    <string name="media_pause_body">Turning Bike Mode off pauses whatever is playing, so nothing keeps going in a helmet you have taken off.</string>
+    <string name="media_pause_scope_note">Android pauses whichever app holds the media session; it cannot pause one audio output on its own.</string>
     <string name="helmet_heading">Helmet device</string>
     <string name="helmet_body">Bike Mode watches for this device when a ride starts and tells you if it did not connect.</string>
     <string name="helmet_cannot_connect_note">Android does not let apps connect an audio device themselves, so Bike Mode can only prompt it and report back.</string>

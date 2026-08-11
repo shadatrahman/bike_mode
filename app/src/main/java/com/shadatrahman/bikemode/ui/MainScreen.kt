@@ -63,6 +63,7 @@ fun MainScreen(
     onToggleBikeMode: () -> Unit,
     onDirectionChange: (LandscapeDirection) -> Unit,
     onBluetoothOnEnableChange: (Boolean) -> Unit,
+    onPauseMediaChange: (Boolean) -> Unit,
     onHelmetChange: (PairedDevice?) -> Unit,
     onGrantBluetooth: () -> Unit,
     onAddTile: () -> Unit,
@@ -76,6 +77,7 @@ fun MainScreen(
                 onToggleBikeMode = onToggleBikeMode,
                 onDirectionChange = onDirectionChange,
                 onBluetoothOnEnableChange = onBluetoothOnEnableChange,
+                onPauseMediaChange = onPauseMediaChange,
                 onHelmetChange = onHelmetChange,
                 onGrantBluetooth = onGrantBluetooth,
                 onAddTile = onAddTile,
@@ -86,6 +88,7 @@ fun MainScreen(
                 onToggleBikeMode = onToggleBikeMode,
                 onDirectionChange = onDirectionChange,
                 onBluetoothOnEnableChange = onBluetoothOnEnableChange,
+                onPauseMediaChange = onPauseMediaChange,
                 onHelmetChange = onHelmetChange,
                 onGrantBluetooth = onGrantBluetooth,
                 onAddTile = onAddTile,
@@ -100,6 +103,7 @@ private fun PortraitLayout(
     onToggleBikeMode: () -> Unit,
     onDirectionChange: (LandscapeDirection) -> Unit,
     onBluetoothOnEnableChange: (Boolean) -> Unit,
+    onPauseMediaChange: (Boolean) -> Unit,
     onHelmetChange: (PairedDevice?) -> Unit,
     onGrantBluetooth: () -> Unit,
     onAddTile: () -> Unit,
@@ -134,9 +138,22 @@ private fun PortraitLayout(
 
         HorizontalDivider()
 
-        BluetoothSection(
+        SwitchSection(
+            headingRes = R.string.bluetooth_heading,
+            bodyRes = R.string.bluetooth_body,
+            noteRes = R.string.bluetooth_one_way_note,
             enabled = state.bluetoothOnEnable,
             onEnabledChange = onBluetoothOnEnableChange,
+        )
+
+        HorizontalDivider()
+
+        SwitchSection(
+            headingRes = R.string.media_pause_heading,
+            bodyRes = R.string.media_pause_body,
+            noteRes = R.string.media_pause_scope_note,
+            enabled = state.pauseMediaOnDisable,
+            onEnabledChange = onPauseMediaChange,
         )
 
         HorizontalDivider()
@@ -172,6 +189,7 @@ private fun LandscapeLayout(
     onToggleBikeMode: () -> Unit,
     onDirectionChange: (LandscapeDirection) -> Unit,
     onBluetoothOnEnableChange: (Boolean) -> Unit,
+    onPauseMediaChange: (Boolean) -> Unit,
     onHelmetChange: (PairedDevice?) -> Unit,
     onGrantBluetooth: () -> Unit,
     onAddTile: () -> Unit,
@@ -229,9 +247,20 @@ private fun LandscapeLayout(
         ) {
             DirectionPicker(selected = state.direction, onDirectionChange = onDirectionChange)
             HorizontalDivider()
-            BluetoothSection(
+            SwitchSection(
+                headingRes = R.string.bluetooth_heading,
+                bodyRes = R.string.bluetooth_body,
+                noteRes = R.string.bluetooth_one_way_note,
                 enabled = state.bluetoothOnEnable,
                 onEnabledChange = onBluetoothOnEnableChange,
+            )
+            HorizontalDivider()
+            SwitchSection(
+                headingRes = R.string.media_pause_heading,
+                bodyRes = R.string.media_pause_body,
+                noteRes = R.string.media_pause_scope_note,
+                enabled = state.pauseMediaOnDisable,
+                onEnabledChange = onPauseMediaChange,
             )
             HorizontalDivider()
             HelmetSection(
@@ -510,11 +539,17 @@ private fun ManualAddressEntry(onHelmetChange: (PairedDevice?) -> Unit) {
 }
 
 /**
- * The one-way note is not a disclaimer for its own sake: Android gives apps no way to ask for
- * Bluetooth to be turned back off, so the rider needs to know Bike Mode will not undo this.
+ * A switch, what it does, and the limit that comes with it.
+ *
+ * Both switches on this screen carry that third line, and neither is a disclaimer for its own
+ * sake: each names something Android will not let an app do — turn Bluetooth back off, aim a pause
+ * at one output — that the rider would otherwise meet as a bug.
  */
 @Composable
-private fun BluetoothSection(
+private fun SwitchSection(
+    headingRes: Int,
+    bodyRes: Int,
+    noteRes: Int,
     enabled: Boolean,
     onEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -526,28 +561,24 @@ private fun BluetoothSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .toggleable(
-                    value = enabled,
-                    role = Role.Switch,
-                    onValueChange = onEnabledChange,
-                )
+                .toggleable(value = enabled, role = Role.Switch, onValueChange = onEnabledChange)
                 .padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = stringResource(R.string.bluetooth_heading),
+                text = stringResource(headingRes),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )
             Switch(checked = enabled, onCheckedChange = null)
         }
         Text(
-            text = stringResource(R.string.bluetooth_body),
+            text = stringResource(bodyRes),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            text = stringResource(R.string.bluetooth_one_way_note),
+            text = stringResource(noteRes),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -593,6 +624,7 @@ private fun MainScreenOffPreview() {
             onToggleBikeMode = {},
             onDirectionChange = {},
             onBluetoothOnEnableChange = {},
+            onPauseMediaChange = {},
             onHelmetChange = {},
             onGrantBluetooth = {},
             onAddTile = {},
@@ -614,6 +646,7 @@ private fun MainScreenLandscapeRightPreview() {
             onToggleBikeMode = {},
             onDirectionChange = {},
             onBluetoothOnEnableChange = {},
+            onPauseMediaChange = {},
             onHelmetChange = {},
             onGrantBluetooth = {},
             onAddTile = {},
@@ -635,6 +668,7 @@ private fun MainScreenLandscapeLeftPreview() {
             onToggleBikeMode = {},
             onDirectionChange = {},
             onBluetoothOnEnableChange = {},
+            onPauseMediaChange = {},
             onHelmetChange = {},
             onGrantBluetooth = {},
             onAddTile = {},

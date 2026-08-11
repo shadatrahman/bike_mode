@@ -8,6 +8,8 @@ import com.shadatrahman.bikemode.data.BikeModeStore
 import com.shadatrahman.bikemode.data.FakeBikeModeStore
 import com.shadatrahman.bikemode.data.LandscapeDirection
 import com.shadatrahman.bikemode.data.SavedRotationState
+import com.shadatrahman.bikemode.media.FakeMediaPauser
+import com.shadatrahman.bikemode.media.MediaPauser
 import com.shadatrahman.bikemode.rotation.RotationSettings.Companion.AUTO_ROTATE_OFF
 import com.shadatrahman.bikemode.rotation.RotationSettings.Companion.AUTO_ROTATE_ON
 import kotlinx.coroutines.test.runTest
@@ -29,7 +31,8 @@ class BikeModeManagerTest {
         settings: RotationSettings,
         watchdog: RotationWatchdog = FakeRotationWatchdog(),
         bluetooth: BluetoothRequester = FakeBluetoothRequester(enabled = true),
-    ) = BikeModeManager(store, settings, watchdog, bluetooth)
+        media: MediaPauser = FakeMediaPauser(),
+    ) = BikeModeManager(store, settings, watchdog, bluetooth, media)
 
     @Test
     fun `enable turns off auto-rotate and pins the preferred landscape direction`() = runTest {
@@ -410,6 +413,66 @@ class BikeModeManagerTest {
 
         assertTrue(store.current().bluetoothOnEnable)
         assertEquals(0, bluetooth.requests)
+    }
+
+    @Test
+    fun `disable pauses whatever was playing`() = runTest {
+        val media = FakeMediaPauser()
+        val manager = bikeModeManager(FakeBikeModeStore(), FakeRotationSettings(), media = media)
+        manager.enable()
+
+        manager.disable()
+
+        assertEquals(1, media.pauses)
+    }
+
+    @Test
+    fun `enable never pauses media`() = runTest {
+        val media = FakeMediaPauser()
+        val manager = bikeModeManager(FakeBikeModeStore(), FakeRotationSettings(), media = media)
+
+        manager.enable()
+
+        // Starting a ride is when the rider wants music, not when they want it stopped.
+        assertEquals(0, media.pauses)
+    }
+
+    @Test
+    fun `disable leaves media alone when the rider opted out`() = runTest {
+        val media = FakeMediaPauser()
+        val store = FakeBikeModeStore(BikeModePreferences(pauseMediaOnDisable = false))
+        val manager = bikeModeManager(store, FakeRotationSettings(), media = media)
+        manager.enable()
+
+        manager.disable()
+
+        assertEquals(0, media.pauses)
+    }
+
+    @Test
+    fun `a failed disable does not pause media`() = runTest {
+        val media = FakeMediaPauser()
+        val settings = FakeRotationSettings(AUTO_ROTATE_ON, Surface.ROTATION_0)
+        val manager = bikeModeManager(FakeBikeModeStore(), settings, media = media)
+        manager.enable()
+        settings.failWrites = true
+
+        assertTrue(manager.disable().isFailure)
+
+        // Bike Mode is still on, so the ride has not ended and the music should keep playing.
+        assertEquals(0, media.pauses)
+    }
+
+    @Test
+    fun `toggling off through the shared path pauses media once`() = runTest {
+        val media = FakeMediaPauser()
+        val manager = bikeModeManager(FakeBikeModeStore(), FakeRotationSettings(), media = media)
+        manager.toggle()
+
+        manager.toggle()
+
+        // Tile, widget and notification all reach disable() this way, so one hook covers them all.
+        assertEquals(1, media.pauses)
     }
 
     @Test

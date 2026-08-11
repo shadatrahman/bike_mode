@@ -111,6 +111,7 @@ app
 ├── rotation/        BikeModeManager, RotationController, ServiceRotationWatchdog
 │                    (RotationWatchdogService + JobRotationWatchdog)
 ├── bluetooth/       BluetoothController, BluetoothHelmetLink, HelmetMonitor
+├── media/           MediaPauseController
 ├── quicksettings/   BikeModeTileService
 ├── widget/          BikeModeWidgetProvider
 ├── data/            PreferencesRepository
@@ -143,6 +144,16 @@ Both features here are shaped by what Android withholds from ordinary apps, so i
 3. wait 10s more, then report `Helmet not connected` in the notification with a one-tap shortcut to Bluetooth settings
 
 The watch is bounded — polling stops once it settles, and an `ACTION_ACL_CONNECTED` receiver (free while idle) corrects the notification if the helmet turns up later.
+
+### Pausing media on dismount
+
+Ending a ride pauses whatever is playing, so a podcast does not carry on in a helmet that is coming off. Opt-out, like the Bluetooth prompt.
+
+Sending an `ACTION_MEDIA_BUTTON` broadcast — still the top answer in most search results — has done nothing for ordinary apps since Android 5.0: `MediaSession` honours only media-button events the system itself dispatched. The supported equivalent is `AudioManager.dispatchMediaKeyEvent`, which needs no permission. It is sent as an ACTION_DOWN/ACTION_UP pair, because some players read a lone DOWN as a key being held, and skipped entirely when `isMusicActive()` is false.
+
+It cannot be aimed. Android routes the key to whichever app holds the active media session, with no way to scope it to one audio output, so this pauses everything rather than just the helmet's audio — which is what the preference is there for.
+
+The hook sits in `BikeModeManager.disable()`, the one path the app button, the tile, the widget and the notification's Turn off action all already converge on.
 
 ## Roadmap
 

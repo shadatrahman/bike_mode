@@ -18,6 +18,8 @@ interface BikeModeStore {
     /** Null clears the choice, so Bike Mode stops watching for any particular device. */
     suspend fun setHelmet(device: PairedDevice?)
 
+    suspend fun setPauseMediaOnDisable(enabled: Boolean)
+
     /** Records that Bike Mode is on, along with the state to restore when it goes off. */
     suspend fun markActive(previous: SavedRotationState)
 

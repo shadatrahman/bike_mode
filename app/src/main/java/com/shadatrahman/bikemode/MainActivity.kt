@@ -103,6 +103,7 @@ private fun BikeModeApp(viewModel: MainViewModel) {
                 onToggleBikeMode = viewModel::toggleBikeMode,
                 onDirectionChange = viewModel::setDirection,
                 onBluetoothOnEnableChange = viewModel::setBluetoothOnEnable,
+                onPauseMediaChange = viewModel::setPauseMediaOnDisable,
                 onHelmetChange = viewModel::setHelmet,
                 // The same trampoline that asks to turn Bluetooth on also asks for the permission,
                 // and onResume re-reads the paired list once the rider comes back.

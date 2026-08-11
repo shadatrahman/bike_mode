@@ -36,6 +36,10 @@ class PreferencesRepository(context: Context) : BikeModeStore {
         dataStore.edit { it[KEY_BLUETOOTH_ON_ENABLE] = enabled }
     }
 
+    override suspend fun setPauseMediaOnDisable(enabled: Boolean) {
+        dataStore.edit { it[KEY_PAUSE_MEDIA_ON_DISABLE] = enabled }
+    }
+
     override suspend fun setHelmet(device: PairedDevice?) {
         dataStore.edit {
             if (device == null) {
@@ -80,6 +84,7 @@ class PreferencesRepository(context: Context) : BikeModeStore {
             firstLaunchCompleted = this[KEY_FIRST_LAUNCH_COMPLETED] == true,
             // Absent means never chosen, which is the opt-out default rather than off.
             bluetoothOnEnable = this[KEY_BLUETOOTH_ON_ENABLE] != false,
+            pauseMediaOnDisable = this[KEY_PAUSE_MEDIA_ON_DISABLE] != false,
             // The address is what identifies the device; a missing name just falls back to it.
             helmet = this[KEY_HELMET_ADDRESS]?.let {
                 PairedDevice(address = it, name = this[KEY_HELMET_NAME] ?: it)
@@ -94,6 +99,7 @@ class PreferencesRepository(context: Context) : BikeModeStore {
         val KEY_PREV_USER_ROTATION = intPreferencesKey("previous_user_rotation")
         val KEY_FIRST_LAUNCH_COMPLETED = booleanPreferencesKey("first_launch_completed")
         val KEY_BLUETOOTH_ON_ENABLE = booleanPreferencesKey("bluetooth_on_enable")
+        val KEY_PAUSE_MEDIA_ON_DISABLE = booleanPreferencesKey("pause_media_on_disable")
         val KEY_HELMET_ADDRESS = stringPreferencesKey("helmet_address")
         val KEY_HELMET_NAME = stringPreferencesKey("helmet_name")
     }

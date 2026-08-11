@@ -27,6 +27,7 @@ data class MainUiState(
     val bikeModeActive: Boolean = false,
     val direction: LandscapeDirection = LandscapeDirection.RIGHT,
     val bluetoothOnEnable: Boolean = true,
+    val pauseMediaOnDisable: Boolean = true,
     val helmet: PairedDevice? = null,
     val pairedDevices: List<PairedDevice> = emptyList(),
     /** False means the paired list is empty because we may not read it, not because there is none. */
@@ -71,6 +72,7 @@ class MainViewModel(
                     bikeModeActive = active,
                     direction = preferences.direction,
                     bluetoothOnEnable = preferences.bluetoothOnEnable,
+                    pauseMediaOnDisable = preferences.pauseMediaOnDisable,
                     helmet = preferences.helmet,
                     pairedDevices = paired,
                     canListDevices = PermissionManager.canUseBluetooth(application),
@@ -100,6 +102,13 @@ class MainViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(bluetoothOnEnable = enabled) }
             manager.setBluetoothOnEnable(enabled)
+        }
+    }
+
+    fun setPauseMediaOnDisable(enabled: Boolean) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(pauseMediaOnDisable = enabled) }
+            manager.setPauseMediaOnDisable(enabled)
         }
     }
 

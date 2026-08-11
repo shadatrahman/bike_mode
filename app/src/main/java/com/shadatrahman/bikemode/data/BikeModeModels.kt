@@ -36,4 +36,6 @@ data class BikeModePreferences(
     val bluetoothOnEnable: Boolean = true,
     /** The device Bike Mode watches for once the ride starts. Null means it watches nothing. */
     val helmet: PairedDevice? = null,
+    /** Pause whatever is playing when the ride ends. Opt-out, like the Bluetooth prompt. */
+    val pauseMediaOnDisable: Boolean = true,
 )
