@@ -100,17 +100,20 @@ An Android activity can request its own orientation. Apps that hard-code their o
 | System integration | `Settings.System`, `TileService` |
 | Networking | None |
 
-## Planned Structure
+## Structure
 
 ```
 app
 ├── MainActivity
-├── ui/              MainScreen, PermissionScreen
-├── rotation/        RotationController
+├── ui/              MainScreen, PermissionScreen, MainViewModel
+├── rotation/        BikeModeManager, RotationController, JobRotationWatchdog
 ├── quicksettings/   BikeModeTileService
+├── widget/          BikeModeWidgetProvider
 ├── data/            PreferencesRepository
-└── util/            PermissionManager
+└── util/            PermissionManager, QuickSettingsTilePrompt
 ```
+
+`BikeModeManager` holds the enable/disable/restore rules and takes its collaborators as interfaces, so the app, the tile, the widget and the watchdog all toggle through one tested path.
 
 ## Roadmap
 
