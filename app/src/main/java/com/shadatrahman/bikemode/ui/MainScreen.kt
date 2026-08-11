@@ -67,6 +67,7 @@ fun MainScreen(
     onKeepScreenOnChange: (Boolean) -> Unit,
     onBoostBrightnessChange: (Boolean) -> Unit,
     onSilenceNotificationsChange: (Boolean) -> Unit,
+    onBatteryGuardChange: (Boolean) -> Unit,
     onGrantDoNotDisturb: () -> Unit,
     onOpenBluetooth: () -> Unit,
     onAddTile: () -> Unit,
@@ -84,6 +85,7 @@ fun MainScreen(
                 onKeepScreenOnChange = onKeepScreenOnChange,
                 onBoostBrightnessChange = onBoostBrightnessChange,
                 onSilenceNotificationsChange = onSilenceNotificationsChange,
+                onBatteryGuardChange = onBatteryGuardChange,
                 onGrantDoNotDisturb = onGrantDoNotDisturb,
                 onOpenBluetooth = onOpenBluetooth,
                 onAddTile = onAddTile,
@@ -98,6 +100,7 @@ fun MainScreen(
                 onKeepScreenOnChange = onKeepScreenOnChange,
                 onBoostBrightnessChange = onBoostBrightnessChange,
                 onSilenceNotificationsChange = onSilenceNotificationsChange,
+                onBatteryGuardChange = onBatteryGuardChange,
                 onGrantDoNotDisturb = onGrantDoNotDisturb,
                 onOpenBluetooth = onOpenBluetooth,
                 onAddTile = onAddTile,
@@ -116,6 +119,7 @@ private fun PortraitLayout(
     onKeepScreenOnChange: (Boolean) -> Unit,
     onBoostBrightnessChange: (Boolean) -> Unit,
     onSilenceNotificationsChange: (Boolean) -> Unit,
+    onBatteryGuardChange: (Boolean) -> Unit,
     onGrantDoNotDisturb: () -> Unit,
     onOpenBluetooth: () -> Unit,
     onAddTile: () -> Unit,
@@ -157,6 +161,7 @@ private fun PortraitLayout(
             onKeepScreenOnChange = onKeepScreenOnChange,
             onBoostBrightnessChange = onBoostBrightnessChange,
             onSilenceNotificationsChange = onSilenceNotificationsChange,
+            onBatteryGuardChange = onBatteryGuardChange,
             onGrantDoNotDisturb = onGrantDoNotDisturb,
             onOpenBluetooth = onOpenBluetooth,
         )
@@ -188,6 +193,7 @@ private fun LandscapeLayout(
     onKeepScreenOnChange: (Boolean) -> Unit,
     onBoostBrightnessChange: (Boolean) -> Unit,
     onSilenceNotificationsChange: (Boolean) -> Unit,
+    onBatteryGuardChange: (Boolean) -> Unit,
     onGrantDoNotDisturb: () -> Unit,
     onOpenBluetooth: () -> Unit,
     onAddTile: () -> Unit,
@@ -252,6 +258,7 @@ private fun LandscapeLayout(
                 onKeepScreenOnChange = onKeepScreenOnChange,
                 onBoostBrightnessChange = onBoostBrightnessChange,
                 onSilenceNotificationsChange = onSilenceNotificationsChange,
+                onBatteryGuardChange = onBatteryGuardChange,
                 onGrantDoNotDisturb = onGrantDoNotDisturb,
                 onOpenBluetooth = onOpenBluetooth,
             )
@@ -401,6 +408,7 @@ private fun RideSettings(
     onKeepScreenOnChange: (Boolean) -> Unit,
     onBoostBrightnessChange: (Boolean) -> Unit,
     onSilenceNotificationsChange: (Boolean) -> Unit,
+    onBatteryGuardChange: (Boolean) -> Unit,
     onGrantDoNotDisturb: () -> Unit,
     onOpenBluetooth: () -> Unit,
     modifier: Modifier = Modifier,
@@ -464,6 +472,16 @@ private fun RideSettings(
         HorizontalDivider()
 
         SwitchSection(
+            headingRes = R.string.battery_guard_heading,
+            bodyRes = R.string.battery_guard_body,
+            noteRes = R.string.battery_guard_note,
+            enabled = state.batteryGuard,
+            onEnabledChange = onBatteryGuardChange,
+        )
+
+        HorizontalDivider()
+
+        SwitchSection(
             headingRes = R.string.media_pause_heading,
             bodyRes = R.string.media_pause_body,
             noteRes = R.string.media_pause_scope_note,
@@ -516,6 +534,7 @@ private fun MainScreenOffPreview() {
             onKeepScreenOnChange = {},
             onBoostBrightnessChange = {},
             onSilenceNotificationsChange = {},
+            onBatteryGuardChange = {},
             onGrantDoNotDisturb = {},
             onOpenBluetooth = {},
             onAddTile = {},
@@ -541,6 +560,7 @@ private fun MainScreenLandscapeRightPreview() {
             onKeepScreenOnChange = {},
             onBoostBrightnessChange = {},
             onSilenceNotificationsChange = {},
+            onBatteryGuardChange = {},
             onGrantDoNotDisturb = {},
             onOpenBluetooth = {},
             onAddTile = {},
@@ -566,6 +586,7 @@ private fun MainScreenLandscapeLeftPreview() {
             onKeepScreenOnChange = {},
             onBoostBrightnessChange = {},
             onSilenceNotificationsChange = {},
+            onBatteryGuardChange = {},
             onGrantDoNotDisturb = {},
             onOpenBluetooth = {},
             onAddTile = {},

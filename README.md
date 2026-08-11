@@ -113,7 +113,8 @@ app
 ├── bluetooth/       BluetoothController, BluetoothHelmetLink, HelmetMonitor
 ├── media/           MediaPauseController
 ├── notifications/   InterruptionController
-├── display/         DisplayController
+├── display/         DisplayController, DaylightGate
+├── battery/         SystemBatteryStatus, PowerSaveGate
 ├── companion/       HelmetPresenceService, HelmetAssociation
 ├── quicksettings/   BikeModeTileService
 ├── widget/          BikeModeWidgetProvider
@@ -167,6 +168,16 @@ Two settings a mounted phone wants changed, both opt-out/opt-in switches of thei
 They follow the same save-and-restore contract as rotation, with one refinement: `SavedDisplayState` holds each field as nullable, and null means *Bike Mode never touched this*. So a rider who dims the screen by hand mid-ride keeps that, and only the settings Bike Mode actually changed are handed back. Timeout goes to 30 minutes rather than never, so a Bike Mode left on in a pocket still eventually sleeps. Display writes are best effort — a device that refuses one still gets its landscape lock, because rotation is the feature and this is comfort on top.
 
 Brightness is gated on the **light sensor**, not on the switch alone. Full brightness is right in direct sun and actively hazardous after dark, so `DaylightGate` decides from a `TYPE_LIGHT` reading, and `RotationWatchdogService` keeps following it for the whole ride — a commute that sets off in sun and finishes at night gives the brightness back on the way. The two thresholds are deliberately far apart (boost above 5000 lux, release below 2000) so that riding under a bridge or a line of trees cannot flicker the screen. A phone with no light sensor has nothing to ask, so there the switch stands on its own.
+
+### Easing off when the battery is low
+
+Everything above makes the phone work harder — screen never sleeping, brightness at maximum, Bluetooth up, a resident service — and nothing watched what it cost. Arriving with a flat phone is the one failure that takes the navigation and the emergency call with it.
+
+Needs no permission: charge level and charging state are open API. While riding, `PowerSaveGate` reads the sticky battery broadcast and eases off in two steps — below 20% the brightness boost goes, below 10% the screen is allowed to sleep between glances. Navigation runs throughout, and the notification names what happened (*"Saving battery — 18%"*) so it never reads as the brightness setting having failed. **Charging beats everything**: on a powered mount the guard stays out of the way entirely.
+
+Same hysteresis discipline as the daylight gate, and for the same reason — a phone hovering at exactly twenty percent would otherwise flip the screen bright and dim again on every twitch of the reading.
+
+The two watchers argue over one setting: daylight asks for full brightness, a draining battery asks for it back. Rather than let them fight, both feed flags into a single `applyScreenDecision()` in the watchdog service, with the battery winning — easing off is pointless if something else overrides it.
 
 ### Silencing notifications
 

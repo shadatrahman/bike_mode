@@ -22,6 +22,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import com.shadatrahman.bikemode.MainActivity
 import com.shadatrahman.bikemode.R
+import com.shadatrahman.bikemode.battery.BatterySaving
+import com.shadatrahman.bikemode.battery.PowerSaveGate
+import com.shadatrahman.bikemode.battery.SystemBatteryStatus
 import com.shadatrahman.bikemode.bluetooth.BluetoothHelmetLink
 import com.shadatrahman.bikemode.bluetooth.HelmetMonitor
 import com.shadatrahman.bikemode.bluetooth.HelmetState
@@ -58,6 +61,7 @@ class RotationWatchdogService : Service() {
     private val manager by lazy { BikeModeManager(applicationContext) }
     private val helmetLink by lazy { BluetoothHelmetLink(applicationContext) }
     private val ambientLight by lazy { SensorAmbientLight(applicationContext) }
+    private val battery by lazy { SystemBatteryStatus(applicationContext) }
     private val display by lazy { DisplayController(applicationContext) }
     private val helmetMonitor by lazy {
         HelmetMonitor(helmetLink, scope) { state ->
@@ -77,6 +81,17 @@ class RotationWatchdogService : Service() {
 
     @Volatile private var helmetAddress: String? = null
 
+    /** The two inputs [applyScreenDecision] settles between, plus what is owed back either way. */
+    @Volatile private var daylight = false
+
+    @Volatile private var saving: BatterySaving = BatterySaving.NONE
+
+    @Volatile private var chargePercent = 100
+
+    @Volatile private var keepAwakeWanted = false
+
+    @Volatile private var owedDisplay: SavedDisplayState? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -94,7 +109,7 @@ class RotationWatchdogService : Service() {
         refreshNotification()
         observe()
         watchHelmet()
-        watchDaylight()
+        watchPower()
         // If the system kills this process anyway, the content-trigger job survives to restart us.
         JobRotationWatchdog.schedule(applicationContext)
         // Whatever drifted while we were not running gets repaired the moment we come back up.
@@ -110,35 +125,76 @@ class RotationWatchdogService : Service() {
         helmetMonitor.stop()
         helmetLink.close()
         ambientLight.stop()
+        battery.stop()
         scope.cancel()
         super.onDestroy()
     }
 
     /**
-     * Follows the light for the length of the ride, so a commute that sets off in sun and finishes
-     * after dark hands the brightness back on the way rather than dazzling the rider home.
+     * Follows the light and the battery for the length of the ride.
      *
-     * Only the brightness is restored, and only to what was captured at the start — the rest of
-     * what Bike Mode owes stays untouched until the ride actually ends.
+     * They are watched together because they argue over the same setting: daylight asks for full
+     * brightness, a draining battery asks for it back. Rather than let two observers fight, both
+     * feed flags and [applyScreenDecision] settles it — with the battery winning, since the point
+     * of easing off is undone by anything that overrides it.
+     *
+     * Only what was captured at the start is ever restored; the rest of what Bike Mode owes stays
+     * untouched until the ride actually ends.
      */
-    private fun watchDaylight() {
+    private fun watchPower() {
         scope.launch {
             val prefs = manager.preferences()
-            if (!prefs.boostBrightness || !ambientLight.isAvailable) return@launch
-            val owed = prefs.previousDisplay
-            val gate = DaylightGate(boosted = display.brightnessMode() == MANUAL_BRIGHTNESS)
-            ambientLight.observe { lux ->
-                when (gate.update(lux)) {
-                    true -> display.applyBrightnessBoost()
-                    false -> display.restore(
-                        SavedDisplayState(
-                            brightness = owed?.brightness,
-                            brightnessMode = owed?.brightnessMode,
-                        )
-                    )
-                    null -> Unit
+            owedDisplay = prefs.previousDisplay
+            keepAwakeWanted = prefs.keepScreenOn
+
+            if (prefs.boostBrightness && ambientLight.isAvailable) {
+                daylight = display.brightnessMode() == MANUAL_BRIGHTNESS
+                val gate = DaylightGate(boosted = daylight)
+                ambientLight.observe { lux ->
+                    gate.update(lux)?.let {
+                        daylight = it
+                        applyScreenDecision()
+                    }
+                }
+            } else {
+                // No sensor, or no boost wanted: the switch alone decides, as the manager already did.
+                daylight = prefs.boostBrightness
+            }
+
+            if (prefs.batteryGuard) {
+                val gate = PowerSaveGate()
+                battery.observe { charge ->
+                    gate.update(charge)?.let {
+                        saving = it
+                        chargePercent = charge.percent
+                        applyScreenDecision()
+                        refreshNotification()
+                    }
                 }
             }
+        }
+    }
+
+    /**
+     * The one place the screen settings are decided, so the two watchers cannot undo each other.
+     *
+     * Everything here is a re-application of a state already chosen, which is why it is safe to run
+     * on every reading: writing the same value twice costs nothing and changes nothing.
+     */
+    private fun applyScreenDecision() {
+        val owed = owedDisplay
+        if (daylight && saving == BatterySaving.NONE) {
+            display.applyBrightnessBoost()
+        } else {
+            display.restore(
+                SavedDisplayState(brightness = owed?.brightness, brightnessMode = owed?.brightnessMode)
+            )
+        }
+        when {
+            saving == BatterySaving.BRIGHTNESS_AND_TIMEOUT ->
+                display.restore(SavedDisplayState(screenOffTimeout = owed?.screenOffTimeout))
+
+            keepAwakeWanted -> display.applyKeepAwake()
         }
     }
 
@@ -254,11 +310,14 @@ class RotationWatchdogService : Service() {
             }
         )
         val helmet = helmetState.summaryRes()?.let { getString(it) }
+        // Named outright, so easing off never reads as the brightness setting having failed.
+        val power = if (saving == BatterySaving.NONE) null
+        else getString(R.string.watchdog_saving_battery, chargePercent)
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_bike_mode)
             .setContentTitle(getString(R.string.watchdog_title))
             .setContentText(
-                if (helmet == null) rotation else getString(R.string.watchdog_text_with_helmet, rotation, helmet)
+                listOfNotNull(rotation, helmet, power).joinToString(SEPARATOR)
             )
             .setContentIntent(open)
             .addAction(0, getString(R.string.watchdog_stop), stop)
@@ -315,6 +374,9 @@ class RotationWatchdogService : Service() {
 
         /** `Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL`, which is how a live boost reads. */
         private const val MANUAL_BRIGHTNESS = 0
+
+        /** Between the parts of the notification's one status line. */
+        private const val SEPARATOR = " · "
 
         /**
          * Android 12+ refuses foreground service starts from the background. Every path that turns

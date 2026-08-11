@@ -63,4 +63,6 @@ data class BikeModePreferences(
     val autoStartWithHelmet: Boolean = false,
     /** Silence notifications while riding. Opt-in, and needs notification policy access first. */
     val silenceNotifications: Boolean = false,
+    /** Ease off the screen settings when the battery runs low and nothing is charging it. */
+    val batteryGuard: Boolean = true,
 )

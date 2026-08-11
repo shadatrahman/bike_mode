@@ -41,6 +41,9 @@
     <string name="auto_start_body">Bike Mode turns itself on when your helmet connects and off when it disconnects, with no tap at all.</string>
     <string name="auto_start_association_note">Android asks you to pair Bike Mode with the helmet once, so it may wake the app when the helmet is near. Switch the helmet on first — the system has to find it to complete that step.</string>
     <string name="auto_start_needs_device">Choose a helmet above first.</string>
+    <string name="battery_guard_heading">Ease off when the battery is low</string>
+    <string name="battery_guard_body">Below 20%, Bike Mode gives full brightness back; below 10%, the screen sleeps between glances too. Navigation keeps running throughout.</string>
+    <string name="battery_guard_note">Never while the phone is charging. Arriving with a flat phone costs you the navigation and the emergency call alike.</string>
     <string name="silence_heading">Silence notifications</string>
     <string name="silence_body">Holds Do Not Disturb for the ride, so message tones do not go off in your helmet. Navigation still speaks — voice guidance is media, which Do Not Disturb never touches.</string>
     <string name="silence_calls_note">Urgent calls still get through: anyone who rings twice within 15 minutes, and your starred contacts. Your own Do Not Disturb setting is put back when the ride ends.</string>
@@ -85,7 +88,7 @@
     <string name="watchdog_text_right">Holding landscape right</string>
     <string name="watchdog_stop">Turn off</string>
     <string name="watchdog_bluetooth_settings">Bluetooth settings</string>
-    <string name="watchdog_text_with_helmet">%1$s · %2$s</string>
+    <string name="watchdog_saving_battery">Saving battery — %1$d%%</string>
     <string name="watchdog_helmet_waiting">Waiting for helmet</string>
     <string name="watchdog_helmet_connected">Helmet connected</string>
     <string name="watchdog_helmet_missing">Helmet not connected</string>

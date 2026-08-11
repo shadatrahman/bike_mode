@@ -88,16 +88,16 @@ class BikeModeManager(
     }
 
     /**
-     * Only the settings Bike Mode is about to change are captured; the rest stay null so [disable]
-     * knows it owes the rider nothing for them.
-     */
-    /**
      * Null unless Bike Mode is actually going to silence anything, so [disable] knows it owes the
      * rider nothing and leaves a filter they set themselves alone.
      */
     private fun captureInterruption(prefs: BikeModePreferences): Int? =
         interruptions.current().takeIf { prefs.silenceNotifications && interruptions.canControl }
 
+    /**
+     * Only the settings Bike Mode is about to change are captured; the rest stay null so [disable]
+     * knows it owes the rider nothing for them.
+     */
     private fun captureDisplay(prefs: BikeModePreferences) = SavedDisplayState(
         screenOffTimeout = display.screenOffTimeout().takeIf { prefs.keepScreenOn },
         brightness = display.brightness().takeIf { prefs.boostBrightness },
@@ -219,6 +219,9 @@ class BikeModeManager(
     }
 
     suspend fun setAutoStartWithHelmet(enabled: Boolean) = store.setAutoStartWithHelmet(enabled)
+
+    /** Takes effect on the watchdog's next reading, which arrives within seconds. */
+    suspend fun setBatteryGuard(enabled: Boolean) = store.setBatteryGuard(enabled)
 
     /** Like the display settings, this takes effect at once and hands back at once. */
     suspend fun setSilenceNotifications(enabled: Boolean) {

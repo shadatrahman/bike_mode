@@ -69,6 +69,10 @@ class PreferencesRepository(context: Context) : BikeModeStore {
         dataStore.edit { it[KEY_SILENCE_NOTIFICATIONS] = enabled }
     }
 
+    override suspend fun setBatteryGuard(enabled: Boolean) {
+        dataStore.edit { it[KEY_BATTERY_GUARD] = enabled }
+    }
+
     override suspend fun markActive(
         previous: SavedRotationState,
         previousDisplay: SavedDisplayState,
@@ -125,6 +129,7 @@ class PreferencesRepository(context: Context) : BikeModeStore {
             boostBrightness = this[KEY_BOOST_BRIGHTNESS] == true,
             autoStartWithHelmet = this[KEY_AUTO_START_WITH_HELMET] == true,
             silenceNotifications = this[KEY_SILENCE_NOTIFICATIONS] == true,
+            batteryGuard = this[KEY_BATTERY_GUARD] != false,
             previousInterruptionFilter = this[KEY_PREV_INTERRUPTION_FILTER],
             previousDisplay = SavedDisplayState(
                 screenOffTimeout = this[KEY_PREV_SCREEN_OFF_TIMEOUT],
@@ -153,6 +158,7 @@ class PreferencesRepository(context: Context) : BikeModeStore {
         val KEY_PREV_BRIGHTNESS = intPreferencesKey("previous_brightness")
         val KEY_PREV_BRIGHTNESS_MODE = intPreferencesKey("previous_brightness_mode")
         val KEY_SILENCE_NOTIFICATIONS = booleanPreferencesKey("silence_notifications")
+        val KEY_BATTERY_GUARD = booleanPreferencesKey("battery_guard")
         val KEY_PREV_INTERRUPTION_FILTER = intPreferencesKey("previous_interruption_filter")
         val KEY_HELMET_ADDRESS = stringPreferencesKey("helmet_address")
         val KEY_HELMET_NAME = stringPreferencesKey("helmet_name")

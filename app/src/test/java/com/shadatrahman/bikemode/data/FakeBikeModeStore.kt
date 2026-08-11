@@ -52,6 +52,10 @@ class FakeBikeModeStore(
         state.update { it.copy(silenceNotifications = enabled) }
     }
 
+    override suspend fun setBatteryGuard(enabled: Boolean) {
+        state.update { it.copy(batteryGuard = enabled) }
+    }
+
     override suspend fun markActive(
         previous: SavedRotationState,
         previousDisplay: SavedDisplayState,

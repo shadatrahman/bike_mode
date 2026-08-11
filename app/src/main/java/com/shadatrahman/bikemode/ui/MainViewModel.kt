@@ -35,6 +35,7 @@ data class MainUiState(
     val boostBrightness: Boolean = false,
     val autoStartWithHelmet: Boolean = false,
     val silenceNotifications: Boolean = false,
+    val batteryGuard: Boolean = true,
     /** False until the rider grants notification policy access on the system screen. */
     val canSilenceNotifications: Boolean = false,
     /** Set when a device needs associating; only an activity may ask, so the activity picks it up. */
@@ -92,6 +93,7 @@ class MainViewModel(
                     boostBrightness = preferences.boostBrightness,
                     autoStartWithHelmet = preferences.autoStartWithHelmet,
                     silenceNotifications = preferences.silenceNotifications,
+                    batteryGuard = preferences.batteryGuard,
                     // Re-read on resume: policy access is granted on a system screen, so the rider
                     // may well have just come back from granting it.
                     canSilenceNotifications = interruptions.canControl,
@@ -152,6 +154,13 @@ class MainViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(silenceNotifications = enabled) }
             manager.setSilenceNotifications(enabled)
+        }
+    }
+
+    fun setBatteryGuard(enabled: Boolean) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(batteryGuard = enabled) }
+            manager.setBatteryGuard(enabled)
         }
     }
 
