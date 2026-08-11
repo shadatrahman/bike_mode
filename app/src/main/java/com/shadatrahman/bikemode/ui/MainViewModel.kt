@@ -1,6 +1,7 @@
 package com.shadatrahman.bikemode.ui
 
 import android.app.Application
+import android.content.IntentSender
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -9,6 +10,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.shadatrahman.bikemode.bluetooth.BluetoothHelmetLink
 import com.shadatrahman.bikemode.bluetooth.HelmetLink
+import com.shadatrahman.bikemode.companion.HelmetAssociation
 import com.shadatrahman.bikemode.data.LandscapeDirection
 import com.shadatrahman.bikemode.data.PairedDevice
 import com.shadatrahman.bikemode.data.PreferencesRepository
@@ -28,6 +30,11 @@ data class MainUiState(
     val direction: LandscapeDirection = LandscapeDirection.RIGHT,
     val bluetoothOnEnable: Boolean = true,
     val pauseMediaOnDisable: Boolean = true,
+    val keepScreenOn: Boolean = true,
+    val boostBrightness: Boolean = false,
+    val autoStartWithHelmet: Boolean = false,
+    /** Set when Android's association dialog is waiting to be shown; the activity launches it. */
+    val pendingAssociation: IntentSender? = null,
     val helmet: PairedDevice? = null,
     val pairedDevices: List<PairedDevice> = emptyList(),
     /** False means the paired list is empty because we may not read it, not because there is none. */
@@ -40,6 +47,7 @@ class MainViewModel(
     private val manager: BikeModeManager = BikeModeManager(application),
     private val repository: PreferencesRepository = PreferencesRepository(application),
     private val helmetLink: HelmetLink = BluetoothHelmetLink(application),
+    private val association: HelmetAssociation = HelmetAssociation(application),
 ) : ViewModel() {
 
     override fun onCleared() {
@@ -73,6 +81,9 @@ class MainViewModel(
                     direction = preferences.direction,
                     bluetoothOnEnable = preferences.bluetoothOnEnable,
                     pauseMediaOnDisable = preferences.pauseMediaOnDisable,
+                    keepScreenOn = preferences.keepScreenOn,
+                    boostBrightness = preferences.boostBrightness,
+                    autoStartWithHelmet = preferences.autoStartWithHelmet,
                     helmet = preferences.helmet,
                     pairedDevices = paired,
                     canListDevices = PermissionManager.canUseBluetooth(application),
@@ -112,10 +123,74 @@ class MainViewModel(
         }
     }
 
+    fun setKeepScreenOn(enabled: Boolean) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(keepScreenOn = enabled) }
+            manager.setKeepScreenOn(enabled)
+        }
+    }
+
+    fun setBoostBrightness(enabled: Boolean) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(boostBrightness = enabled) }
+            manager.setBoostBrightness(enabled)
+        }
+    }
+
     fun setHelmet(device: PairedDevice?) {
         viewModelScope.launch {
+            val previous = _uiState.value.helmet
             _uiState.update { it.copy(helmet = device) }
             manager.setHelmet(device)
+            // Changing helmets must not leave the old one able to wake the app for a ride.
+            previous?.takeIf { it.address != device?.address }?.let {
+                association.stopObserving(it)
+                association.forget(it)
+            }
+            if (device == null) setAutoStartWithHelmet(false)
+        }
+    }
+
+    /**
+     * Turning this on needs the system's consent for the device, which is a dialog rather than a
+     * value we can set. If it has already been given, observing starts immediately; if not, the
+     * IntentSender goes into state for the activity to launch.
+     */
+    fun setAutoStartWithHelmet(enabled: Boolean) {
+        viewModelScope.launch {
+            val helmet = _uiState.value.helmet
+            _uiState.update { it.copy(autoStartWithHelmet = enabled) }
+            manager.setAutoStartWithHelmet(enabled)
+            if (helmet == null) return@launch
+            if (!enabled) {
+                association.stopObserving(helmet)
+            } else if (association.isAssociated(helmet)) {
+                association.startObserving(helmet)
+            } else {
+                association.requestAssociation(
+                    device = helmet,
+                    callback = { sender -> _uiState.update { it.copy(pendingAssociation = sender) } },
+                    onFailure = { rejectAutoStart() },
+                )
+            }
+        }
+    }
+
+    fun onAssociationLaunched() = _uiState.update { it.copy(pendingAssociation = null) }
+
+    /** The rider dismissed Android's dialog, so the setting must not claim to be on. */
+    fun onAssociationDeclined() = rejectAutoStart()
+
+    fun onAssociationApproved() {
+        viewModelScope.launch {
+            _uiState.value.helmet?.let { association.startObserving(it) }
+        }
+    }
+
+    private fun rejectAutoStart() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(autoStartWithHelmet = false, pendingAssociation = null) }
+            manager.setAutoStartWithHelmet(false)
         }
     }
 

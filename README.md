@@ -107,11 +107,13 @@ An Android activity can request its own orientation. Apps that hard-code their o
 ```
 app
 ├── MainActivity
-├── ui/              MainScreen, PermissionScreen, MainViewModel
+├── ui/              MainScreen, BluetoothScreen, PermissionScreen, MainViewModel
 ├── rotation/        BikeModeManager, RotationController, ServiceRotationWatchdog
 │                    (RotationWatchdogService + JobRotationWatchdog)
 ├── bluetooth/       BluetoothController, BluetoothHelmetLink, HelmetMonitor
 ├── media/           MediaPauseController
+├── display/         DisplayController
+├── companion/       HelmetPresenceService, HelmetAssociation
 ├── quicksettings/   BikeModeTileService
 ├── widget/          BikeModeWidgetProvider
 ├── data/            PreferencesRepository
@@ -154,6 +156,24 @@ Sending an `ACTION_MEDIA_BUTTON` broadcast — still the top answer in most sear
 It cannot be aimed. Android routes the key to whichever app holds the active media session, with no way to scope it to one audio output, so this pauses everything rather than just the helmet's audio — which is what the preference is there for.
 
 The hook sits in `BikeModeManager.disable()`, the one path the app button, the tile, the widget and the notification's Turn off action all already converge on.
+
+### Screen timeout and brightness
+
+Two settings a mounted phone wants changed, both opt-out/opt-in switches of their own. A landscape lock is no use if the screen sleeps at a red light, and an automatic brightness level is unreadable in direct sun.
+
+`SCREEN_OFF_TIMEOUT`, `SCREEN_BRIGHTNESS` and `SCREEN_BRIGHTNESS_MODE` all live in `Settings.System`, so **WRITE_SETTINGS — already held for rotation — covers them.** No new permission and no new prompt.
+
+They follow the same save-and-restore contract as rotation, with one refinement: `SavedDisplayState` holds each field as nullable, and null means *Bike Mode never touched this*. So a rider who dims the screen by hand mid-ride keeps that, and only the settings Bike Mode actually changed are handed back. Timeout goes to 30 minutes rather than never, so a Bike Mode left on in a pocket still eventually sleeps. Display writes are best effort — a device that refuses one still gets its landscape lock, because rotation is the feature and this is comfort on top.
+
+Brightness is gated on the **light sensor**, not on the switch alone. Full brightness is right in direct sun and actively hazardous after dark, so `DaylightGate` decides from a `TYPE_LIGHT` reading, and `RotationWatchdogService` keeps following it for the whole ride — a commute that sets off in sun and finishes at night gives the brightness back on the way. The two thresholds are deliberately far apart (boost above 5000 lux, release below 2000) so that riding under a bridge or a line of trees cannot flicker the screen. A phone with no light sensor has nothing to ask, so there the switch stands on its own.
+
+### Starting and stopping with the helmet
+
+Opt-in. `CompanionDeviceManager` association plus `CompanionDeviceService.onDeviceAppeared` / `onDeviceDisappeared`, so putting the helmet on starts the ride and taking it off ends it — restoring rotation and display, and pausing media, with no tap.
+
+This is the only mechanism that can do it. A manifest-registered `ACL_CONNECTED` receiver would not fire while the app is not running, since that broadcast is not on the implicit-broadcast exemption list; the system binds a `CompanionDeviceService` regardless. It is also what makes starting the watchdog's foreground service legal from the background, via `REQUEST_COMPANION_START_FOREGROUND_SERVICES_FROM_BACKGROUND`.
+
+Association is a one-time system dialog, filtered by `BluetoothDeviceFilter.setAddress()` to the helmet already chosen in the app, so the rider does not pick twice. Changing or clearing the helmet disassociates the old one, so nothing stale can keep waking the app.
 
 ## Roadmap
 

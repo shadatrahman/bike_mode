@@ -8,6 +8,10 @@ import com.shadatrahman.bikemode.data.BikeModeStore
 import com.shadatrahman.bikemode.data.FakeBikeModeStore
 import com.shadatrahman.bikemode.data.LandscapeDirection
 import com.shadatrahman.bikemode.data.SavedRotationState
+import com.shadatrahman.bikemode.display.AmbientLight
+import com.shadatrahman.bikemode.display.FakeAmbientLight
+import com.shadatrahman.bikemode.display.DisplaySettings
+import com.shadatrahman.bikemode.display.FakeDisplaySettings
 import com.shadatrahman.bikemode.media.FakeMediaPauser
 import com.shadatrahman.bikemode.media.MediaPauser
 import com.shadatrahman.bikemode.rotation.RotationSettings.Companion.AUTO_ROTATE_OFF
@@ -32,7 +36,9 @@ class BikeModeManagerTest {
         watchdog: RotationWatchdog = FakeRotationWatchdog(),
         bluetooth: BluetoothRequester = FakeBluetoothRequester(enabled = true),
         media: MediaPauser = FakeMediaPauser(),
-    ) = BikeModeManager(store, settings, watchdog, bluetooth, media)
+        display: DisplaySettings = FakeDisplaySettings(),
+        ambientLight: AmbientLight = FakeAmbientLight(),
+    ) = BikeModeManager(store, settings, watchdog, bluetooth, media, display, ambientLight)
 
     @Test
     fun `enable turns off auto-rotate and pins the preferred landscape direction`() = runTest {
@@ -473,6 +479,180 @@ class BikeModeManagerTest {
 
         // Tile, widget and notification all reach disable() this way, so one hook covers them all.
         assertEquals(1, media.pauses)
+    }
+
+    @Test
+    fun `enable holds the screen awake and disable gives the timeout back`() = runTest {
+        val display = FakeDisplaySettings(timeout = 15_000)
+        val manager = bikeModeManager(FakeBikeModeStore(), FakeRotationSettings(), display = display)
+
+        manager.enable()
+        assertEquals(FakeDisplaySettings.RIDE_TIMEOUT, display.timeout)
+
+        manager.disable()
+        assertEquals(15_000, display.timeout)
+    }
+
+    @Test
+    fun `brightness is left alone unless the rider opted in`() = runTest {
+        val display = FakeDisplaySettings(brightness = 40, brightnessMode = FakeDisplaySettings.AUTOMATIC)
+        val manager = bikeModeManager(FakeBikeModeStore(), FakeRotationSettings(), display = display)
+
+        manager.enable()
+
+        // Keep-screen-on is on by default; brightness boost is not, so nothing here should move.
+        assertEquals(40, display.brightness)
+        assertEquals(FakeDisplaySettings.AUTOMATIC, display.brightnessMode)
+    }
+
+    @Test
+    fun `brightness boost goes manual and comes back automatic`() = runTest {
+        val display = FakeDisplaySettings(brightness = 40, brightnessMode = FakeDisplaySettings.AUTOMATIC)
+        val store = FakeBikeModeStore(BikeModePreferences(boostBrightness = true))
+        val manager = bikeModeManager(store, FakeRotationSettings(), display = display)
+
+        manager.enable()
+        assertEquals(FakeDisplaySettings.MAX, display.brightness)
+        assertEquals(FakeDisplaySettings.MANUAL, display.brightnessMode)
+
+        manager.disable()
+        assertEquals(40, display.brightness)
+        assertEquals(FakeDisplaySettings.AUTOMATIC, display.brightnessMode)
+    }
+
+    @Test
+    fun `a ride starting after dark does not boost brightness`() = runTest {
+        val display = FakeDisplaySettings(brightness = 40, brightnessMode = FakeDisplaySettings.AUTOMATIC)
+        val store = FakeBikeModeStore(BikeModePreferences(boostBrightness = true))
+        val manager = bikeModeManager(
+            store,
+            FakeRotationSettings(),
+            display = display,
+            ambientLight = FakeAmbientLight(lux = FakeAmbientLight.NIGHT),
+        )
+
+        manager.enable()
+
+        // The switch says "bright in sun", and the sun is not out.
+        assertEquals(40, display.brightness)
+        assertEquals(FakeDisplaySettings.AUTOMATIC, display.brightnessMode)
+    }
+
+    @Test
+    fun `brightness still comes back after a night ride that never boosted`() = runTest {
+        val display = FakeDisplaySettings(brightness = 40, brightnessMode = FakeDisplaySettings.AUTOMATIC)
+        val store = FakeBikeModeStore(BikeModePreferences(boostBrightness = true))
+        val manager = bikeModeManager(
+            store,
+            FakeRotationSettings(),
+            display = display,
+            ambientLight = FakeAmbientLight(lux = FakeAmbientLight.NIGHT),
+        )
+        manager.enable()
+
+        manager.disable()
+
+        // The watchdog may have boosted mid-ride, so what was captured is still owed back.
+        assertEquals(40, display.brightness)
+        assertEquals(FakeDisplaySettings.AUTOMATIC, display.brightnessMode)
+    }
+
+    @Test
+    fun `a phone with no light sensor still honours the switch`() = runTest {
+        val display = FakeDisplaySettings(brightness = 40)
+        val store = FakeBikeModeStore(BikeModePreferences(boostBrightness = true))
+        val manager = bikeModeManager(
+            store,
+            FakeRotationSettings(),
+            display = display,
+            ambientLight = FakeAmbientLight(isAvailable = false, lux = null),
+        )
+
+        manager.enable()
+
+        // Nothing to ask, so the rider's explicit choice stands rather than being silently dropped.
+        assertEquals(FakeDisplaySettings.MAX, display.brightness)
+    }
+
+    @Test
+    fun `disable does not touch a display setting Bike Mode never changed`() = runTest {
+        val display = FakeDisplaySettings(brightness = 40)
+        val store = FakeBikeModeStore(BikeModePreferences(boostBrightness = false))
+        val manager = bikeModeManager(store, FakeRotationSettings(), display = display)
+        manager.enable()
+
+        // Rider dims the screen by hand mid-ride. Bike Mode never owned brightness, so it keeps out.
+        display.brightness = 10
+
+        manager.disable()
+        assertEquals(10, display.brightness)
+    }
+
+    @Test
+    fun `re-enabling while active keeps the display state owed to the rider`() = runTest {
+        val display = FakeDisplaySettings(timeout = 15_000)
+        val manager = bikeModeManager(FakeBikeModeStore(), FakeRotationSettings(), display = display)
+        manager.enable()
+
+        manager.enable()
+        manager.disable()
+
+        // Without the guard the second enable would have saved the ride's own 30-minute timeout.
+        assertEquals(15_000, display.timeout)
+    }
+
+    @Test
+    fun `a refused display write still leaves Bike Mode on`() = runTest {
+        val display = FakeDisplaySettings().apply { failWrites = true }
+        val store = FakeBikeModeStore()
+        val manager = bikeModeManager(store, FakeRotationSettings(), display = display)
+
+        assertTrue(manager.enable().isSuccess)
+
+        // Rotation is the feature; the display settings are comfort that must not veto it.
+        assertTrue(store.current().bikeModeActive)
+    }
+
+    @Test
+    fun `switching keep-screen-on off mid-ride hands the timeout straight back`() = runTest {
+        val display = FakeDisplaySettings(timeout = 15_000)
+        val store = FakeBikeModeStore()
+        val manager = bikeModeManager(store, FakeRotationSettings(), display = display)
+        manager.enable()
+
+        manager.setKeepScreenOn(false)
+
+        assertEquals(15_000, display.timeout)
+        assertNull(store.current().previousDisplay?.screenOffTimeout)
+    }
+
+    @Test
+    fun `switching brightness boost on mid-ride applies it and remembers what it replaced`() = runTest {
+        val display = FakeDisplaySettings(brightness = 40, brightnessMode = FakeDisplaySettings.AUTOMATIC)
+        val store = FakeBikeModeStore()
+        val manager = bikeModeManager(store, FakeRotationSettings(), display = display)
+        manager.enable()
+
+        manager.setBoostBrightness(true)
+        assertEquals(FakeDisplaySettings.MAX, display.brightness)
+
+        manager.disable()
+        assertEquals(40, display.brightness)
+        // The timeout was owed from the original enable and must survive the mid-ride edit.
+        assertEquals(FakeDisplaySettings.DEFAULT_TIMEOUT, display.timeout)
+    }
+
+    @Test
+    fun `changing a display setting while off only persists the preference`() = runTest {
+        val display = FakeDisplaySettings(timeout = 15_000)
+        val store = FakeBikeModeStore()
+        val manager = bikeModeManager(store, FakeRotationSettings(), display = display)
+
+        manager.setBoostBrightness(true)
+
+        assertTrue(store.current().boostBrightness)
+        assertEquals(15_000, display.timeout)
+        assertNull(store.current().previousDisplay)
     }
 
     @Test

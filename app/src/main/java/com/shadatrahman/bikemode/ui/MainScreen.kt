@@ -64,8 +64,9 @@ fun MainScreen(
     onDirectionChange: (LandscapeDirection) -> Unit,
     onBluetoothOnEnableChange: (Boolean) -> Unit,
     onPauseMediaChange: (Boolean) -> Unit,
-    onHelmetChange: (PairedDevice?) -> Unit,
-    onGrantBluetooth: () -> Unit,
+    onKeepScreenOnChange: (Boolean) -> Unit,
+    onBoostBrightnessChange: (Boolean) -> Unit,
+    onOpenBluetooth: () -> Unit,
     onAddTile: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -78,8 +79,9 @@ fun MainScreen(
                 onDirectionChange = onDirectionChange,
                 onBluetoothOnEnableChange = onBluetoothOnEnableChange,
                 onPauseMediaChange = onPauseMediaChange,
-                onHelmetChange = onHelmetChange,
-                onGrantBluetooth = onGrantBluetooth,
+                onKeepScreenOnChange = onKeepScreenOnChange,
+                onBoostBrightnessChange = onBoostBrightnessChange,
+                onOpenBluetooth = onOpenBluetooth,
                 onAddTile = onAddTile,
             )
         } else {
@@ -89,8 +91,9 @@ fun MainScreen(
                 onDirectionChange = onDirectionChange,
                 onBluetoothOnEnableChange = onBluetoothOnEnableChange,
                 onPauseMediaChange = onPauseMediaChange,
-                onHelmetChange = onHelmetChange,
-                onGrantBluetooth = onGrantBluetooth,
+                onKeepScreenOnChange = onKeepScreenOnChange,
+                onBoostBrightnessChange = onBoostBrightnessChange,
+                onOpenBluetooth = onOpenBluetooth,
                 onAddTile = onAddTile,
             )
         }
@@ -104,8 +107,9 @@ private fun PortraitLayout(
     onDirectionChange: (LandscapeDirection) -> Unit,
     onBluetoothOnEnableChange: (Boolean) -> Unit,
     onPauseMediaChange: (Boolean) -> Unit,
-    onHelmetChange: (PairedDevice?) -> Unit,
-    onGrantBluetooth: () -> Unit,
+    onKeepScreenOnChange: (Boolean) -> Unit,
+    onBoostBrightnessChange: (Boolean) -> Unit,
+    onOpenBluetooth: () -> Unit,
     onAddTile: () -> Unit,
 ) {
     Column(
@@ -138,32 +142,13 @@ private fun PortraitLayout(
 
         HorizontalDivider()
 
-        SwitchSection(
-            headingRes = R.string.bluetooth_heading,
-            bodyRes = R.string.bluetooth_body,
-            noteRes = R.string.bluetooth_one_way_note,
-            enabled = state.bluetoothOnEnable,
-            onEnabledChange = onBluetoothOnEnableChange,
-        )
-
-        HorizontalDivider()
-
-        SwitchSection(
-            headingRes = R.string.media_pause_heading,
-            bodyRes = R.string.media_pause_body,
-            noteRes = R.string.media_pause_scope_note,
-            enabled = state.pauseMediaOnDisable,
-            onEnabledChange = onPauseMediaChange,
-        )
-
-        HorizontalDivider()
-
-        HelmetSection(
-            helmet = state.helmet,
-            paired = state.pairedDevices,
-            canListDevices = state.canListDevices,
-            onHelmetChange = onHelmetChange,
-            onGrantBluetooth = onGrantBluetooth,
+        RideSettings(
+            state = state,
+            onBluetoothOnEnableChange = onBluetoothOnEnableChange,
+            onPauseMediaChange = onPauseMediaChange,
+            onKeepScreenOnChange = onKeepScreenOnChange,
+            onBoostBrightnessChange = onBoostBrightnessChange,
+            onOpenBluetooth = onOpenBluetooth,
         )
 
         HorizontalDivider()
@@ -190,8 +175,9 @@ private fun LandscapeLayout(
     onDirectionChange: (LandscapeDirection) -> Unit,
     onBluetoothOnEnableChange: (Boolean) -> Unit,
     onPauseMediaChange: (Boolean) -> Unit,
-    onHelmetChange: (PairedDevice?) -> Unit,
-    onGrantBluetooth: () -> Unit,
+    onKeepScreenOnChange: (Boolean) -> Unit,
+    onBoostBrightnessChange: (Boolean) -> Unit,
+    onOpenBluetooth: () -> Unit,
     onAddTile: () -> Unit,
 ) {
     Column(
@@ -247,28 +233,13 @@ private fun LandscapeLayout(
         ) {
             DirectionPicker(selected = state.direction, onDirectionChange = onDirectionChange)
             HorizontalDivider()
-            SwitchSection(
-                headingRes = R.string.bluetooth_heading,
-                bodyRes = R.string.bluetooth_body,
-                noteRes = R.string.bluetooth_one_way_note,
-                enabled = state.bluetoothOnEnable,
-                onEnabledChange = onBluetoothOnEnableChange,
-            )
-            HorizontalDivider()
-            SwitchSection(
-                headingRes = R.string.media_pause_heading,
-                bodyRes = R.string.media_pause_body,
-                noteRes = R.string.media_pause_scope_note,
-                enabled = state.pauseMediaOnDisable,
-                onEnabledChange = onPauseMediaChange,
-            )
-            HorizontalDivider()
-            HelmetSection(
-                helmet = state.helmet,
-                paired = state.pairedDevices,
-                canListDevices = state.canListDevices,
-                onHelmetChange = onHelmetChange,
-                onGrantBluetooth = onGrantBluetooth,
+            RideSettings(
+                state = state,
+                onBluetoothOnEnableChange = onBluetoothOnEnableChange,
+                onPauseMediaChange = onPauseMediaChange,
+                onKeepScreenOnChange = onKeepScreenOnChange,
+                onBoostBrightnessChange = onBoostBrightnessChange,
+                onOpenBluetooth = onOpenBluetooth,
             )
             HorizontalDivider()
             QuickSettingsSection(onAddTile = onAddTile)
@@ -402,185 +373,62 @@ private fun DirectionPicker(
 }
 
 /**
- * Picking the helmet: paired devices as a list, plus a typed address for one that is not paired
- * yet. The note about connecting is load-bearing — Android reserves audio-profile connect calls
- * for privileged apps, so the honest promise is "watched and reported", not "connected".
- */
-@Composable
-private fun HelmetSection(
-    helmet: PairedDevice?,
-    paired: List<PairedDevice>,
-    canListDevices: Boolean,
-    onHelmetChange: (PairedDevice?) -> Unit,
-    onGrantBluetooth: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(
-            text = stringResource(R.string.helmet_heading),
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            text = stringResource(R.string.helmet_body),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        if (!canListDevices) {
-            Text(
-                text = stringResource(R.string.helmet_permission_needed),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            OutlinedButton(onClick = onGrantBluetooth, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.helmet_permission_grant))
-            }
-        } else {
-            Column(Modifier.selectableGroup()) {
-                DeviceRow(
-                    label = stringResource(R.string.helmet_none),
-                    selected = helmet == null,
-                    onClick = { onHelmetChange(null) },
-                )
-                paired.forEach { device ->
-                    DeviceRow(
-                        label = device.name,
-                        detail = device.address,
-                        selected = device.address.equals(helmet?.address, ignoreCase = true),
-                        onClick = { onHelmetChange(device) },
-                    )
-                }
-            }
-            if (paired.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.helmet_no_paired_devices),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        ManualAddressEntry(onHelmetChange = onHelmetChange)
-
-        Text(
-            text = stringResource(R.string.helmet_cannot_connect_note),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun DeviceRow(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    detail: String? = null,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        RadioButton(selected = selected, onClick = null)
-        Column(Modifier.padding(start = 12.dp)) {
-            Text(text = label, style = MaterialTheme.typography.bodyLarge)
-            if (detail != null) {
-                Text(
-                    text = detail,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-/**
- * For a helmet that is not paired to this phone yet, so it cannot appear in the list above. The
- * address is validated by the platform's own checker rather than a hand-rolled pattern.
- */
-@Composable
-private fun ManualAddressEntry(onHelmetChange: (PairedDevice?) -> Unit) {
-    var typed by rememberSaveable { mutableStateOf("") }
-    val normalised = typed.trim().uppercase()
-    val valid = BluetoothAdapter.checkBluetoothAddress(normalised)
-
-    OutlinedTextField(
-        value = typed,
-        onValueChange = { typed = it },
-        label = { Text(stringResource(R.string.helmet_manual_label)) },
-        placeholder = { Text(stringResource(R.string.helmet_manual_hint)) },
-        singleLine = true,
-        isError = typed.isNotBlank() && !valid,
-        supportingText = if (typed.isNotBlank() && !valid) {
-            { Text(stringResource(R.string.helmet_manual_invalid)) }
-        } else {
-            null
-        },
-        modifier = Modifier.fillMaxWidth(),
-    )
-    OutlinedButton(
-        onClick = {
-            // No name to show for a device this phone has never paired with, so the address is it.
-            onHelmetChange(PairedDevice(address = normalised, name = normalised))
-            typed = ""
-        },
-        enabled = valid,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text(stringResource(R.string.helmet_manual_use))
-    }
-}
-
-/**
- * A switch, what it does, and the limit that comes with it.
+ * What a ride does to the phone, in one group and in the order it happens: Bluetooth comes up,
+ * the screen stays awake and bright, and media stops when the ride ends.
  *
- * Both switches on this screen carry that third line, and neither is a disclaimer for its own
- * sake: each names something Android will not let an app do — turn Bluetooth back off, aim a pause
- * at one output — that the rider would otherwise meet as a bug.
+ * Bluetooth is the only one with more behind it than a switch, so it is the only one that opens a
+ * screen of its own. The rest state their whole behaviour here.
  */
 @Composable
-private fun SwitchSection(
-    headingRes: Int,
-    bodyRes: Int,
-    noteRes: Int,
-    enabled: Boolean,
-    onEnabledChange: (Boolean) -> Unit,
+private fun RideSettings(
+    state: MainUiState,
+    onBluetoothOnEnableChange: (Boolean) -> Unit,
+    onPauseMediaChange: (Boolean) -> Unit,
+    onKeepScreenOnChange: (Boolean) -> Unit,
+    onBoostBrightnessChange: (Boolean) -> Unit,
+    onOpenBluetooth: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .toggleable(value = enabled, role = Role.Switch, onValueChange = onEnabledChange)
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(headingRes),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f),
-            )
-            Switch(checked = enabled, onCheckedChange = null)
-        }
-        Text(
-            text = stringResource(bodyRes),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        SettingsRow(
+            headingRes = R.string.bluetooth_heading,
+            subtitle = state.helmet?.name ?: stringResource(R.string.helmet_none_chosen),
+            enabled = state.bluetoothOnEnable,
+            onOpen = onOpenBluetooth,
+            onEnabledChange = onBluetoothOnEnableChange,
         )
-        Text(
-            text = stringResource(noteRes),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+        HorizontalDivider()
+
+        SwitchSection(
+            headingRes = R.string.keep_screen_on_heading,
+            bodyRes = R.string.keep_screen_on_body,
+            noteRes = R.string.keep_screen_on_note,
+            enabled = state.keepScreenOn,
+            onEnabledChange = onKeepScreenOnChange,
+        )
+
+        HorizontalDivider()
+
+        SwitchSection(
+            headingRes = R.string.brightness_heading,
+            bodyRes = R.string.brightness_body,
+            noteRes = R.string.brightness_note,
+            enabled = state.boostBrightness,
+            onEnabledChange = onBoostBrightnessChange,
+        )
+
+        HorizontalDivider()
+
+        SwitchSection(
+            headingRes = R.string.media_pause_heading,
+            bodyRes = R.string.media_pause_body,
+            noteRes = R.string.media_pause_scope_note,
+            enabled = state.pauseMediaOnDisable,
+            onEnabledChange = onPauseMediaChange,
         )
     }
 }
@@ -625,8 +473,9 @@ private fun MainScreenOffPreview() {
             onDirectionChange = {},
             onBluetoothOnEnableChange = {},
             onPauseMediaChange = {},
-            onHelmetChange = {},
-            onGrantBluetooth = {},
+            onKeepScreenOnChange = {},
+            onBoostBrightnessChange = {},
+            onOpenBluetooth = {},
             onAddTile = {},
         )
     }
@@ -647,8 +496,9 @@ private fun MainScreenLandscapeRightPreview() {
             onDirectionChange = {},
             onBluetoothOnEnableChange = {},
             onPauseMediaChange = {},
-            onHelmetChange = {},
-            onGrantBluetooth = {},
+            onKeepScreenOnChange = {},
+            onBoostBrightnessChange = {},
+            onOpenBluetooth = {},
             onAddTile = {},
         )
     }
@@ -669,8 +519,9 @@ private fun MainScreenLandscapeLeftPreview() {
             onDirectionChange = {},
             onBluetoothOnEnableChange = {},
             onPauseMediaChange = {},
-            onHelmetChange = {},
-            onGrantBluetooth = {},
+            onKeepScreenOnChange = {},
+            onBoostBrightnessChange = {},
+            onOpenBluetooth = {},
             onAddTile = {},
         )
     }

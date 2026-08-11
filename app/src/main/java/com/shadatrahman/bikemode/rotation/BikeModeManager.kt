@@ -8,6 +8,12 @@ import com.shadatrahman.bikemode.data.BikeModeStore
 import com.shadatrahman.bikemode.data.LandscapeDirection
 import com.shadatrahman.bikemode.data.PairedDevice
 import com.shadatrahman.bikemode.data.PreferencesRepository
+import com.shadatrahman.bikemode.data.SavedDisplayState
+import com.shadatrahman.bikemode.display.AmbientLight
+import com.shadatrahman.bikemode.display.DaylightGate
+import com.shadatrahman.bikemode.display.DisplayController
+import com.shadatrahman.bikemode.display.DisplaySettings
+import com.shadatrahman.bikemode.display.SensorAmbientLight
 import com.shadatrahman.bikemode.media.MediaPauseController
 import com.shadatrahman.bikemode.media.MediaPauser
 
@@ -23,6 +29,8 @@ class BikeModeManager(
     private val watchdog: RotationWatchdog,
     private val bluetooth: BluetoothRequester,
     private val media: MediaPauser,
+    private val display: DisplaySettings,
+    private val ambientLight: AmbientLight,
 ) {
 
     constructor(context: Context) : this(
@@ -31,6 +39,8 @@ class BikeModeManager(
         watchdog = ServiceRotationWatchdog(context),
         bluetooth = BluetoothController(context),
         media = MediaPauseController(context),
+        display = DisplayController(context),
+        ambientLight = SensorAmbientLight(context),
     )
 
     /**
@@ -60,18 +70,56 @@ class BikeModeManager(
         // Only capture the previous state on a genuine off -> on transition, otherwise a re-apply
         // would overwrite it with Bike Mode's own values and lose what we owe the user.
         val previous = prefs.previous.takeIf { prefs.bikeModeActive } ?: settings.readState()
+        val previousDisplay = prefs.previousDisplay.takeIf { prefs.bikeModeActive } ?: captureDisplay(prefs)
         return settings.applyBikeMode(prefs.direction)
             .onSuccess {
-                store.markActive(previous)
+                store.markActive(previous, previousDisplay)
+                applyDisplay(prefs)
                 watchdog.start()
                 if (requestBluetooth && prefs.bluetoothOnEnable) raiseBluetooth()
             }
+    }
+
+    /**
+     * Only the settings Bike Mode is about to change are captured; the rest stay null so [disable]
+     * knows it owes the rider nothing for them.
+     */
+    private fun captureDisplay(prefs: BikeModePreferences) = SavedDisplayState(
+        screenOffTimeout = display.screenOffTimeout().takeIf { prefs.keepScreenOn },
+        brightness = display.brightness().takeIf { prefs.boostBrightness },
+        brightnessMode = display.brightnessMode().takeIf { prefs.boostBrightness },
+    )
+
+    /**
+     * Best effort on purpose. A device that refuses a brightness write should still get its
+     * landscape lock — the rotation is the feature, the display settings are comfort on top.
+     */
+    private suspend fun applyDisplay(prefs: BikeModePreferences) {
+        if (prefs.keepScreenOn) display.applyKeepAwake()
+        if (prefs.boostBrightness && isDaylight()) display.applyBrightnessBoost()
+    }
+
+    /**
+     * The switch says the rider wants a bright screen in sun; it does not say the sun is out. A
+     * ride starting after dark must not be met with full brightness, so the sensor has the final
+     * say — and where there is no sensor to ask, the switch stands on its own.
+     *
+     * [RotationWatchdogService] keeps watching the same reading for the rest of the ride, so a
+     * commute that ends after sunset gives the brightness back on the way.
+     */
+    private suspend fun isDaylight(): Boolean {
+        if (!ambientLight.isAvailable) return true
+        val lux = ambientLight.currentLux() ?: return true
+        return DaylightGate().update(lux) == true
     }
 
     suspend fun disable(): Result<Unit> {
         val prefs = store.current()
         return settings.restore(prefs.previous)
             .onSuccess {
+                // Before markInactive clears what we owe: the rider gets their screen back even if
+                // the display writes fail, since a stuck-awake screen is worse than a failed lock.
+                display.restore(prefs.previousDisplay)
                 store.markInactive()
                 watchdog.stop()
                 // Every off switch — app, tile, widget, notification — lands here, so the media
@@ -120,6 +168,49 @@ class BikeModeManager(
 
     /** Unlike the Bluetooth one, this has no immediate effect to show: it acts when the ride ends. */
     suspend fun setPauseMediaOnDisable(enabled: Boolean) = store.setPauseMediaOnDisable(enabled)
+
+    /**
+     * Display settings changed mid-ride take effect at once, and switching one off hands that
+     * setting straight back rather than holding it hostage until the ride ends.
+     */
+    suspend fun setKeepScreenOn(enabled: Boolean) {
+        store.setKeepScreenOn(enabled)
+        if (!isActive()) return
+        if (enabled) {
+            rememberDisplay { it.copy(screenOffTimeout = display.screenOffTimeout()) }
+            display.applyKeepAwake()
+        } else {
+            val owed = store.current().previousDisplay
+            display.restore(SavedDisplayState(screenOffTimeout = owed?.screenOffTimeout))
+            rememberDisplay { it.copy(screenOffTimeout = null) }
+        }
+    }
+
+    suspend fun setBoostBrightness(enabled: Boolean) {
+        store.setBoostBrightness(enabled)
+        if (!isActive()) return
+        if (enabled) {
+            rememberDisplay {
+                it.copy(brightness = display.brightness(), brightnessMode = display.brightnessMode())
+            }
+            if (isDaylight()) display.applyBrightnessBoost()
+        } else {
+            val owed = store.current().previousDisplay
+            display.restore(
+                SavedDisplayState(brightness = owed?.brightness, brightnessMode = owed?.brightnessMode)
+            )
+            rememberDisplay { it.copy(brightness = null, brightnessMode = null) }
+        }
+    }
+
+    suspend fun setAutoStartWithHelmet(enabled: Boolean) = store.setAutoStartWithHelmet(enabled)
+
+    /** Rewrites what Bike Mode owes the rider without disturbing the rotation half of it. */
+    private suspend fun rememberDisplay(edit: (SavedDisplayState) -> SavedDisplayState) {
+        val prefs = store.current()
+        val rotation = prefs.previous ?: settings.readState()
+        store.markActive(rotation, edit(prefs.previousDisplay ?: SavedDisplayState()))
+    }
 
     /**
      * Never lowers Bluetooth, only raises it, and only when it is actually down — so a rider who

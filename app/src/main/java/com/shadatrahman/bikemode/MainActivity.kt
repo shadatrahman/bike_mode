@@ -1,12 +1,15 @@
 package com.shadatrahman.bikemode
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,11 +22,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.shadatrahman.bikemode.bluetooth.BluetoothRequestActivity
+import com.shadatrahman.bikemode.ui.BluetoothScreen
 import com.shadatrahman.bikemode.ui.MainScreen
 import com.shadatrahman.bikemode.ui.MainViewModel
 import com.shadatrahman.bikemode.ui.PermissionScreen
@@ -77,6 +84,27 @@ private fun BikeModeApp(viewModel: MainViewModel) {
     val errorMessage = stringResource(R.string.error_system_rejected)
     val retryLabel = stringResource(R.string.error_try_again)
 
+    // One extra page is not worth a navigation graph; the back handler lives on the screen itself.
+    var showBluetooth by rememberSaveable { mutableStateOf(false) }
+
+    // Only an activity may show Android's companion-device dialog, so the ViewModel hands the
+    // IntentSender up and this launches it.
+    val associationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.onAssociationApproved()
+        } else {
+            viewModel.onAssociationDeclined()
+        }
+    }
+
+    LaunchedEffect(state.pendingAssociation) {
+        val sender = state.pendingAssociation ?: return@LaunchedEffect
+        viewModel.onAssociationLaunched()
+        associationLauncher.launch(IntentSenderRequest.Builder(sender).build())
+    }
+
     LaunchedEffect(state.showError) {
         if (!state.showError) return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(message = errorMessage, actionLabel = retryLabel)
@@ -98,18 +126,29 @@ private fun BikeModeApp(viewModel: MainViewModel) {
                 modifier = contentModifier,
             )
 
+            showBluetooth -> BluetoothScreen(
+                state = state,
+                onBluetoothOnEnableChange = viewModel::setBluetoothOnEnable,
+                onHelmetChange = viewModel::setHelmet,
+                onAutoStartChange = viewModel::setAutoStartWithHelmet,
+                // The same trampoline that asks to turn Bluetooth on also asks for the permission,
+                // and onResume re-reads the paired list once the rider comes back.
+                onGrantBluetooth = {
+                    context.startActivity(Intent(context, BluetoothRequestActivity::class.java))
+                },
+                onBack = { showBluetooth = false },
+                modifier = contentModifier,
+            )
+
             else -> MainScreen(
                 state = state,
                 onToggleBikeMode = viewModel::toggleBikeMode,
                 onDirectionChange = viewModel::setDirection,
                 onBluetoothOnEnableChange = viewModel::setBluetoothOnEnable,
                 onPauseMediaChange = viewModel::setPauseMediaOnDisable,
-                onHelmetChange = viewModel::setHelmet,
-                // The same trampoline that asks to turn Bluetooth on also asks for the permission,
-                // and onResume re-reads the paired list once the rider comes back.
-                onGrantBluetooth = {
-                    context.startActivity(Intent(context, BluetoothRequestActivity::class.java))
-                },
+                onKeepScreenOnChange = viewModel::setKeepScreenOn,
+                onBoostBrightnessChange = viewModel::setBoostBrightness,
+                onOpenBluetooth = { showBluetooth = true },
                 onAddTile = { QuickSettingsTilePrompt.request(context) },
                 modifier = contentModifier,
             )

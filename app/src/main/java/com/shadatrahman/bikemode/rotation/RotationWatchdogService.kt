@@ -26,6 +26,10 @@ import com.shadatrahman.bikemode.bluetooth.BluetoothHelmetLink
 import com.shadatrahman.bikemode.bluetooth.HelmetMonitor
 import com.shadatrahman.bikemode.bluetooth.HelmetState
 import com.shadatrahman.bikemode.data.LandscapeDirection
+import com.shadatrahman.bikemode.data.SavedDisplayState
+import com.shadatrahman.bikemode.display.DaylightGate
+import com.shadatrahman.bikemode.display.DisplayController
+import com.shadatrahman.bikemode.display.SensorAmbientLight
 import com.shadatrahman.bikemode.widget.BikeModeWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,6 +57,8 @@ class RotationWatchdogService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val manager by lazy { BikeModeManager(applicationContext) }
     private val helmetLink by lazy { BluetoothHelmetLink(applicationContext) }
+    private val ambientLight by lazy { SensorAmbientLight(applicationContext) }
+    private val display by lazy { DisplayController(applicationContext) }
     private val helmetMonitor by lazy {
         HelmetMonitor(helmetLink, scope) { state ->
             helmetState = state
@@ -88,6 +94,7 @@ class RotationWatchdogService : Service() {
         refreshNotification()
         observe()
         watchHelmet()
+        watchDaylight()
         // If the system kills this process anyway, the content-trigger job survives to restart us.
         JobRotationWatchdog.schedule(applicationContext)
         // Whatever drifted while we were not running gets repaired the moment we come back up.
@@ -102,8 +109,37 @@ class RotationWatchdogService : Service() {
         aclReceiver = null
         helmetMonitor.stop()
         helmetLink.close()
+        ambientLight.stop()
         scope.cancel()
         super.onDestroy()
+    }
+
+    /**
+     * Follows the light for the length of the ride, so a commute that sets off in sun and finishes
+     * after dark hands the brightness back on the way rather than dazzling the rider home.
+     *
+     * Only the brightness is restored, and only to what was captured at the start — the rest of
+     * what Bike Mode owes stays untouched until the ride actually ends.
+     */
+    private fun watchDaylight() {
+        scope.launch {
+            val prefs = manager.preferences()
+            if (!prefs.boostBrightness || !ambientLight.isAvailable) return@launch
+            val owed = prefs.previousDisplay
+            val gate = DaylightGate(boosted = display.brightnessMode() == MANUAL_BRIGHTNESS)
+            ambientLight.observe { lux ->
+                when (gate.update(lux)) {
+                    true -> display.applyBrightnessBoost()
+                    false -> display.restore(
+                        SavedDisplayState(
+                            brightness = owed?.brightness,
+                            brightnessMode = owed?.brightnessMode,
+                        )
+                    )
+                    null -> Unit
+                }
+            }
+        }
     }
 
     /**
@@ -276,6 +312,9 @@ class RotationWatchdogService : Service() {
 
         /** Long enough to swallow a two-write burst, short enough that the rider sees no lag. */
         private const val SETTLE_MS = 250L
+
+        /** `Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL`, which is how a live boost reads. */
+        private const val MANUAL_BRIGHTNESS = 0
 
         /**
          * Android 12+ refuses foreground service starts from the background. Every path that turns

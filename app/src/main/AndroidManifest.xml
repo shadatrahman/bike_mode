@@ -21,6 +21,15 @@
         android:name="android.hardware.bluetooth"
         android:required="false" />
 
+    <!--
+        Starting and stopping a ride with the helmet. Presence observation is what wakes the app
+        when it is not running; the foreground-service permission is what then lets it bring the
+        rotation watchdog up, which Android 12+ would otherwise refuse from the background.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_OBSERVE_COMPANION_DEVICE_PRESENCE" />
+    <uses-permission android:name="android.permission.REQUEST_COMPANION_RUN_IN_BACKGROUND" />
+    <uses-permission android:name="android.permission.REQUEST_COMPANION_START_FOREGROUND_SERVICES_FROM_BACKGROUND" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -64,6 +73,16 @@
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Bound by the system when the associated helmet comes and goes, app running or not. -->
+        <service
+            android:name=".companion.HelmetPresenceService"
+            android:exported="true"
+            android:permission="android.permission.BIND_COMPANION_DEVICE_SERVICE">
+            <intent-filter>
+                <action android:name="android.companion.CompanionDeviceService" />
+            </intent-filter>
+        </service>
 
         <!-- Re-arms the watchdog after a reboot or an app update. -->
         <receiver
