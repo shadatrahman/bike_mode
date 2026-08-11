@@ -1,7 +1,6 @@
 package com.shadatrahman.bikemode.data
 
 import android.content.Context
-import android.view.Surface
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -12,50 +11,27 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
-/** The two landscape orientations a rider can mount the phone in. */
-enum class LandscapeDirection(val surfaceRotation: Int) {
-    LEFT(Surface.ROTATION_90),
-    RIGHT(Surface.ROTATION_270);
-
-    companion object {
-        fun fromSurfaceRotation(rotation: Int): LandscapeDirection =
-            entries.firstOrNull { it.surfaceRotation == rotation } ?: RIGHT
-    }
-}
-
-/** The Android rotation settings as they were before Bike Mode touched them. */
-data class SavedRotationState(
-    val accelerometerRotation: Int,
-    val userRotation: Int,
-)
-
-data class BikeModePreferences(
-    val direction: LandscapeDirection = LandscapeDirection.RIGHT,
-    val bikeModeActive: Boolean = false,
-    val previous: SavedRotationState? = null,
-    val firstLaunchCompleted: Boolean = false,
-)
-
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "bike_mode")
 
-class PreferencesRepository(context: Context) {
+/** DataStore-backed [BikeModeStore]. No database and no user-identifiable data. */
+class PreferencesRepository(context: Context) : BikeModeStore {
 
     private val dataStore = context.applicationContext.dataStore
 
-    val preferences: Flow<BikeModePreferences> = dataStore.data.map { it.toBikeModePreferences() }
+    override val preferences: Flow<BikeModePreferences> =
+        dataStore.data.map { it.toBikeModePreferences() }
 
-    suspend fun current(): BikeModePreferences = preferences.first()
+    override suspend fun current(): BikeModePreferences = preferences.first()
 
-    suspend fun setDirection(direction: LandscapeDirection) {
+    override suspend fun setDirection(direction: LandscapeDirection) {
         dataStore.edit { it[KEY_DIRECTION] = direction.surfaceRotation }
     }
 
-    suspend fun setFirstLaunchCompleted() {
+    override suspend fun setFirstLaunchCompleted() {
         dataStore.edit { it[KEY_FIRST_LAUNCH_COMPLETED] = true }
     }
 
-    /** Records that Bike Mode is on, along with the state to restore when it goes off. */
-    suspend fun markActive(previous: SavedRotationState) {
+    override suspend fun markActive(previous: SavedRotationState) {
         dataStore.edit {
             it[KEY_ACTIVE] = true
             it[KEY_PREV_ACCELEROMETER_ROTATION] = previous.accelerometerRotation
@@ -63,7 +39,7 @@ class PreferencesRepository(context: Context) {
         }
     }
 
-    suspend fun markInactive() {
+    override suspend fun markInactive() {
         dataStore.edit {
             it[KEY_ACTIVE] = false
             it.remove(KEY_PREV_ACCELEROMETER_ROTATION)

@@ -81,6 +81,7 @@ class BikeModeTileService : TileService() {
     }
 
     /** Sends the rider to the app to grant WRITE_SETTINGS, since a tile cannot request it. */
+    @Suppress("StartActivityAndCollapseDeprecated")
     private fun openApp() {
         val intent = Intent(this, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
