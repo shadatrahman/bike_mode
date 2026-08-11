@@ -13,6 +13,12 @@
     <!-- Only ever used for the ongoing "Bike Mode on" status and its off switch. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!--
+        A marker, not a grant: the system lists an app under Do Not Disturb access — Modes access on
+        newer builds — only if it asks for this. Without it the app never appears there, so the
+        rider has nowhere to grant the access that silencing notifications actually depends on.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <!--
         Used only to see whether Bluetooth is off and to show the system's own "turn it on?" dialog.
         The app never scans for, pairs with or talks to a device, so it never asks to locate one.
     -->
