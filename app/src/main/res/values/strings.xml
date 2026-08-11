@@ -1,3 +1,37 @@
 <resources>
     <string name="app_name">Bike Mode</string>
+
+    <!-- Quick Settings tile -->
+    <string name="tile_label">Bike Mode</string>
+    <string name="tile_subtitle_locked">Landscape locked</string>
+    <string name="tile_subtitle_off">Off</string>
+    <string name="tile_subtitle_permission_needed">Permission needed</string>
+
+    <!-- Permission screen -->
+    <string name="permission_title">Permission required</string>
+    <string name="permission_explanation">Bike Rotation Lock needs permission to modify Android\'s rotation settings. No personal information is accessed or collected.</string>
+    <string name="permission_usage">It is used only to turn off automatic rotation and pin the screen to a fixed landscape direction.</string>
+    <string name="permission_grant">Grant permission</string>
+    <string name="permission_missing_error">Permission required to control screen rotation.</string>
+
+    <!-- Main screen -->
+    <string name="bike_mode_heading">BIKE MODE</string>
+    <string name="bike_mode_on">ON</string>
+    <string name="bike_mode_off">OFF</string>
+    <string name="bike_mode_locked_landscape">Landscape locked</string>
+    <string name="bike_mode_auto_rotate_disabled">Auto rotation disabled</string>
+    <string name="bike_mode_turn_on">Turn On</string>
+    <string name="bike_mode_turn_off">Turn Off</string>
+    <string name="direction_heading">Rotation direction</string>
+    <string name="direction_left">Landscape Left</string>
+    <string name="direction_right">Landscape Right</string>
+    <string name="quick_settings_heading">Quick Settings</string>
+    <string name="quick_settings_body">Add Bike Mode to Quick Settings for one-tap access while riding.</string>
+    <string name="quick_settings_add">Add Quick Settings tile</string>
+    <string name="third_party_note">Some apps enforce their own screen orientation and may ignore the system rotation lock.</string>
+
+    <!-- Errors -->
+    <string name="error_system_rejected">Your device prevented Bike Rotation Lock from changing the screen orientation.</string>
+    <string name="error_try_again">Try Again</string>
+    <string name="error_dismiss">Dismiss</string>
 </resources>

@@ -28,7 +28,7 @@ The app stays small and focused on one problem. It will not grow into a phone-cu
 
 **Target device** — Nothing Phone (2a) on current Nothing OS. No Nothing-specific private APIs.
 
-**Android support** — `minSdk 31` (Android 12), `targetSdk 36`. Development and testing prioritize Android 13+.
+**Android support** — `minSdk 33` (Android 13), `targetSdk 36`. Android 13 is the floor because the app uses `StatusBarManager.requestAddTileService()` to offer the Quick Settings tile with a single prompt.
 
 ---
 
