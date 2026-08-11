@@ -108,20 +108,32 @@ An Android activity can request its own orientation. Apps that hard-code their o
 app
 ├── MainActivity
 ├── ui/              MainScreen, PermissionScreen, MainViewModel
-├── rotation/        BikeModeManager, RotationController, JobRotationWatchdog
+├── rotation/        BikeModeManager, RotationController, ServiceRotationWatchdog
+│                    (RotationWatchdogService + JobRotationWatchdog)
 ├── quicksettings/   BikeModeTileService
 ├── widget/          BikeModeWidgetProvider
 ├── data/            PreferencesRepository
+├── system/          BootReceiver
 └── util/            PermissionManager, QuickSettingsTilePrompt
 ```
 
 `BikeModeManager` holds the enable/disable/restore rules and takes its collaborators as interfaces, so the app, the tile, the widget and the watchdog all toggle through one tested path.
 
+### Staying alive
+
+A portrait-locked app in the foreground makes Android rewrite `USER_ROTATION`, so something has to be watching the whole time Bike Mode is on. `ServiceRotationWatchdog` runs two layers for that:
+
+- **`RotationWatchdogService`** — a foreground service started only while Bike Mode is on. It holds a `ContentObserver` on the two rotation settings and nothing else: no wake lock, no sensors, no network, no polling. The system pushes it a callback when a setting changes, so its idle cost is process residency alone. It also owns the ongoing notification, which doubles as the off switch.
+- **`JobRotationWatchdog`** — the recovery path. A content-trigger job outlives the process, so if the system kills the service it fires, repairs the rotation and restarts the service.
+- **`BootReceiver`** — content-trigger jobs cannot be persisted, so neither layer survives a reboot on its own. The rotation settings do survive one, so `BOOT_COMPLETED` re-applies the lock and re-arms both.
+
+A **force stop** (from app settings or an OEM task killer) puts the app in Android's stopped state, which cancels jobs and blocks broadcasts by design; nothing can recover from it. Tapping the widget, the tile or the app brings Bike Mode back.
+
 ## Roadmap
 
 **MVP (P0)** — permission flow, enable/disable Bike Mode, landscape 90°/270°, previous-state restore, Quick Settings tile with active/inactive states, DataStore-persisted landscape preference, offline operation, Nothing Phone (2a) road testing.
 
-**P1** — persistent notification while active, restore after reboot, haptic feedback, dynamic shortcut, Material You theming, AMOLED dark mode. *(Home-screen widget shipped.)*
+**P1** — haptic feedback, dynamic shortcut, Material You theming, AMOLED dark mode. *(Home-screen widget, persistent notification and reboot restore shipped.)*
 
 **P2 (exploratory)** — auto-enable on motorcycle Bluetooth connect; launch a preferred navigation app on activation.
 

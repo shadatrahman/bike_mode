@@ -42,6 +42,14 @@
     <string name="widget_direction_locked_right">LANDSCAPE RIGHT</string>
     <string name="widget_description">Lock the screen to landscape with one tap.</string>
 
+    <!-- Ongoing notification shown while the rotation watchdog runs -->
+    <string name="watchdog_channel_name">Bike Mode active</string>
+    <string name="watchdog_channel_description">Shown while Bike Mode is holding the screen in landscape.</string>
+    <string name="watchdog_title">Bike Mode on</string>
+    <string name="watchdog_text_left">Holding landscape left</string>
+    <string name="watchdog_text_right">Holding landscape right</string>
+    <string name="watchdog_stop">Turn off</string>
+
     <!-- Errors -->
     <string name="error_system_rejected">Your device prevented Bike Rotation Lock from changing the screen orientation.</string>
     <string name="error_try_again">Try Again</string>

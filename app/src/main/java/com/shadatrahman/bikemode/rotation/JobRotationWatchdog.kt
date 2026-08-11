@@ -18,8 +18,12 @@ import kotlinx.coroutines.launch
 
 /**
  * [RotationWatchdog] built on a JobScheduler content trigger, so the system wakes the app only
- * when a rotation setting actually changes. Nothing polls, nothing stays resident, and no
- * foreground service is needed — the app still costs nothing while the rider is moving.
+ * when a rotation setting actually changes. Nothing polls and nothing draws power while it waits.
+ *
+ * This is the recovery half of [ServiceRotationWatchdog], not the whole watchdog: a job outlives
+ * the process, so it can bring [RotationWatchdogService] back after a kill, but the system is free
+ * to defer it by the app's standby bucket and it cannot survive a reboot (content-trigger jobs
+ * cannot be persisted — see BootReceiver for that half).
  */
 class JobRotationWatchdog(context: Context) : RotationWatchdog {
 
@@ -71,12 +75,18 @@ class RotationWatchdogJobService : JobService() {
         val manager = BikeModeManager(
             store = PreferencesRepository(applicationContext),
             settings = RotationController(applicationContext),
-            watchdog = JobRotationWatchdog(applicationContext),
+            watchdog = ServiceRotationWatchdog(applicationContext),
         )
         scope.launch {
             val stillActive = manager.reassert()
-            // Re-arm only while Bike Mode is on; turning it off leaves no job behind.
-            if (stillActive) JobRotationWatchdog.schedule(applicationContext)
+            if (stillActive) {
+                // Re-arm only while Bike Mode is on; turning it off leaves no job behind.
+                JobRotationWatchdog.schedule(applicationContext)
+                // Being woken at all means the process may have been killed, taking the observer
+                // with it. Try to bring it back; the system may refuse a background start, in which
+                // case this job keeps carrying the repairs on its own.
+                RotationWatchdogService.start(applicationContext)
+            }
             // This also fires when the rider re-enables auto-rotate from the system Quick
             // Settings, which ends Bike Mode behind our back — the widget has to follow.
             BikeModeWidgetProvider.refresh(applicationContext)

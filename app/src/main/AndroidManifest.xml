@@ -5,6 +5,14 @@
     <!-- Sole special permission: used only to toggle auto-rotate and pin screen orientation. -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
 
+    <!-- Keeps the rotation watchdog resident while Bike Mode is on, and only then. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Rotation settings survive a reboot; the watchdog has to be put back to match. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Only ever used for the ongoing "Bike Mode on" status and its off switch. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -38,11 +46,34 @@
                 android:resource="@xml/bike_mode_widget_info" />
         </receiver>
 
-        <!-- Woken by the system only when a rotation setting changes; never resident. -->
+        <!-- Re-arms the watchdog after a reboot or an app update. -->
+        <receiver
+            android:name=".system.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Woken by the system only when a rotation setting changes; the recovery path. -->
         <service
             android:name=".rotation.RotationWatchdogJobService"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!--
+            Runs only while Bike Mode is on. No wake lock, no sensors, no network, no polling: it
+            sleeps on a ContentObserver, so residency is its whole cost.
+        -->
+        <service
+            android:name=".rotation.RotationWatchdogService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Holds the rider's landscape lock while Bike Mode is on, re-applying it the moment another app rewrites the system rotation setting." />
+        </service>
 
         <service
             android:name=".quicksettings.BikeModeTileService"

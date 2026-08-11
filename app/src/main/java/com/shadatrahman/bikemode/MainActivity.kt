@@ -1,9 +1,12 @@
 package com.shadatrahman.bikemode
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -30,8 +33,12 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels { MainViewModel.Factory }
 
+    private val requestNotifications =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        askForNotifications()
         enableEdgeToEdge()
         setContent {
             BikeModeTheme {
@@ -47,6 +54,16 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.refresh()
+    }
+
+    /**
+     * The watchdog runs with or without this, but the "Bike Mode on" notification is where the
+     * rider's off switch lives while riding, so it is worth asking for once. A refusal is fine.
+     */
+    private fun askForNotifications() {
+        val granted = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!granted) requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 }
 

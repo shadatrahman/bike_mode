@@ -21,7 +21,7 @@ class BikeModeManager(
     constructor(context: Context) : this(
         store = PreferencesRepository(context),
         settings = RotationController(context),
-        watchdog = JobRotationWatchdog(context),
+        watchdog = ServiceRotationWatchdog(context),
     )
 
     /**
