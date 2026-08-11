@@ -124,8 +124,8 @@ private fun PortraitLayout(
 }
 
 /**
- * Status and toggle share the first screen as equal halves. The toggle sits on the side the screen
- * is rotated towards, so it stays under the same hand whichever way the mount is set up.
+ * Status and toggle share the first screen as equal halves. The toggle sits opposite the side the
+ * screen is rotated towards: Landscape Left puts it on the right, Landscape Right on the left.
  */
 @Composable
 private fun LandscapeLayout(
@@ -170,11 +170,11 @@ private fun LandscapeLayout(
                 )
             }
             if (state.direction == LandscapeDirection.LEFT) {
-                toggle()
                 status()
+                toggle()
             } else {
-                status()
                 toggle()
+                status()
             }
         }
 
