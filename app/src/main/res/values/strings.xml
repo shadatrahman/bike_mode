@@ -39,7 +39,7 @@
     <string name="brightness_note">Never at night: it follows the light for the whole ride and gives your brightness back once the sun goes.</string>
     <string name="auto_start_heading">Start and stop with the helmet</string>
     <string name="auto_start_body">Bike Mode turns itself on when your helmet connects and off when it disconnects, with no tap at all.</string>
-    <string name="auto_start_association_note">Android asks you to pair Bike Mode with the helmet once, so it may wake the app when the helmet is near.</string>
+    <string name="auto_start_association_note">Android asks you to pair Bike Mode with the helmet once, so it may wake the app when the helmet is near. Switch the helmet on first — the system has to find it to complete that step.</string>
     <string name="auto_start_needs_device">Choose a helmet above first.</string>
     <string name="media_pause_heading">Pause media when you stop</string>
     <string name="media_pause_body">Turning Bike Mode off pauses whatever is playing, so nothing keeps going in a helmet you have taken off.</string>

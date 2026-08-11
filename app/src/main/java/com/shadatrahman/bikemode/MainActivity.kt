@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.shadatrahman.bikemode.bluetooth.BluetoothRequestActivity
+import com.shadatrahman.bikemode.companion.HelmetAssociation
 import com.shadatrahman.bikemode.ui.BluetoothScreen
 import com.shadatrahman.bikemode.ui.MainScreen
 import com.shadatrahman.bikemode.ui.MainViewModel
@@ -99,10 +100,30 @@ private fun BikeModeApp(viewModel: MainViewModel) {
         }
     }
 
-    LaunchedEffect(state.pendingAssociation) {
-        val sender = state.pendingAssociation ?: return@LaunchedEffect
-        viewModel.onAssociationLaunched()
-        associationLauncher.launch(IntentSenderRequest.Builder(sender).build())
+    // Association must be asked for from an activity, not the application context — asking through
+    // the latter simply returns nothing, which is what made the switch slide back in silence.
+    val activity = context as? Activity
+    val association = remember(activity) { activity?.let { HelmetAssociation(it) } }
+
+    LaunchedEffect(state.associationRequest) {
+        val device = state.associationRequest ?: return@LaunchedEffect
+        viewModel.onAssociationRequested()
+        if (activity == null || association == null) {
+            viewModel.onAssociationFailed("No activity to show the pairing dialog")
+            return@LaunchedEffect
+        }
+        association.requestAssociation(
+            activity = activity,
+            device = device,
+            onPending = { associationLauncher.launch(IntentSenderRequest.Builder(it).build()) },
+            onFailure = viewModel::onAssociationFailed,
+        )
+    }
+
+    LaunchedEffect(state.associationError) {
+        val reason = state.associationError ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(reason)
+        viewModel.dismissAssociationError()
     }
 
     LaunchedEffect(state.showError) {

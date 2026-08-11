@@ -26,6 +26,15 @@
         when it is not running; the foreground-service permission is what then lets it bring the
         rotation watchdog up, which Android 12+ would otherwise refuse from the background.
     -->
+    <!--
+        CompanionDeviceManager refuses to associate unless the feature is declared here, separately
+        from the device actually having it. Not required, so the app still installs on a phone
+        without it; HelmetAssociation checks at runtime and says so rather than failing blankly.
+    -->
+    <uses-feature
+        android:name="android.software.companion_device_setup"
+        android:required="false" />
+
     <uses-permission android:name="android.permission.REQUEST_OBSERVE_COMPANION_DEVICE_PRESENCE" />
     <uses-permission android:name="android.permission.REQUEST_COMPANION_RUN_IN_BACKGROUND" />
     <uses-permission android:name="android.permission.REQUEST_COMPANION_START_FOREGROUND_SERVICES_FROM_BACKGROUND" />

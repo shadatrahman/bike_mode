@@ -1,7 +1,6 @@
 package com.shadatrahman.bikemode.ui
 
 import android.app.Application
-import android.content.IntentSender
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -33,8 +32,10 @@ data class MainUiState(
     val keepScreenOn: Boolean = true,
     val boostBrightness: Boolean = false,
     val autoStartWithHelmet: Boolean = false,
-    /** Set when Android's association dialog is waiting to be shown; the activity launches it. */
-    val pendingAssociation: IntentSender? = null,
+    /** Set when a device needs associating; only an activity may ask, so the activity picks it up. */
+    val associationRequest: PairedDevice? = null,
+    /** Why the last association attempt failed, in the system's own words. Null when it did not. */
+    val associationError: String? = null,
     val helmet: PairedDevice? = null,
     val pairedDevices: List<PairedDevice> = emptyList(),
     /** False means the paired list is empty because we may not read it, not because there is none. */
@@ -153,33 +154,33 @@ class MainViewModel(
 
     /**
      * Turning this on needs the system's consent for the device, which is a dialog rather than a
-     * value we can set. If it has already been given, observing starts immediately; if not, the
-     * IntentSender goes into state for the activity to launch.
+     * value we can set. If consent already exists, observing starts at once; otherwise the device
+     * goes into state for the activity to ask about, since only an activity may.
      */
     fun setAutoStartWithHelmet(enabled: Boolean) {
         viewModelScope.launch {
             val helmet = _uiState.value.helmet
-            _uiState.update { it.copy(autoStartWithHelmet = enabled) }
+            _uiState.update { it.copy(autoStartWithHelmet = enabled, associationError = null) }
             manager.setAutoStartWithHelmet(enabled)
             if (helmet == null) return@launch
-            if (!enabled) {
-                association.stopObserving(helmet)
-            } else if (association.isAssociated(helmet)) {
-                association.startObserving(helmet)
-            } else {
-                association.requestAssociation(
-                    device = helmet,
-                    callback = { sender -> _uiState.update { it.copy(pendingAssociation = sender) } },
-                    onFailure = { rejectAutoStart() },
-                )
+            when {
+                !enabled -> association.stopObserving(helmet)
+                association.isAssociated(helmet) -> association.startObserving(helmet)
+                else -> _uiState.update { it.copy(associationRequest = helmet) }
             }
         }
     }
 
-    fun onAssociationLaunched() = _uiState.update { it.copy(pendingAssociation = null) }
+    fun onAssociationRequested() = _uiState.update { it.copy(associationRequest = null) }
 
-    /** The rider dismissed Android's dialog, so the setting must not claim to be on. */
-    fun onAssociationDeclined() = rejectAutoStart()
+    /**
+     * Reverts the switch and says why. Silently sliding back is what made this impossible to
+     * diagnose the first time round.
+     */
+    fun onAssociationFailed(reason: String) = rejectAutoStart(reason)
+
+    /** The rider dismissed Android's own dialog, so no explanation is owed. */
+    fun onAssociationDeclined() = rejectAutoStart(reason = null)
 
     fun onAssociationApproved() {
         viewModelScope.launch {
@@ -187,9 +188,17 @@ class MainViewModel(
         }
     }
 
-    private fun rejectAutoStart() {
+    fun dismissAssociationError() = _uiState.update { it.copy(associationError = null) }
+
+    private fun rejectAutoStart(reason: String?) {
         viewModelScope.launch {
-            _uiState.update { it.copy(autoStartWithHelmet = false, pendingAssociation = null) }
+            _uiState.update {
+                it.copy(
+                    autoStartWithHelmet = false,
+                    associationRequest = null,
+                    associationError = reason,
+                )
+            }
             manager.setAutoStartWithHelmet(false)
         }
     }
