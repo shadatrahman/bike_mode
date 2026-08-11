@@ -1,0 +1,17 @@
+<!--
+    The platform back arrow, drawn here rather than pulled in from material-icons: Material 3 1.4
+    no longer brings that artifact along, and one 24dp path is not worth a dependency.
+
+    autoMirrored so it points the other way in a right-to-left layout, as the system's own does.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:autoMirrored="true">
+    <!-- Left white and untinted: Compose's Icon paints it with LocalContentColor. -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M20,11H7.83l5.59,-5.59L12,4l-8,8 8,8 1.41,-1.41L7.83,13H20v-2z" />
+</vector>

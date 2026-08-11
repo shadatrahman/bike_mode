@@ -10,19 +10,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shadatrahman.bikemode.R
@@ -35,6 +38,7 @@ import com.shadatrahman.bikemode.data.PairedDevice
  * only ever set up once — none of which belongs in front of a rider who opened the app to tap the
  * big toggle. The main screen keeps a one-line summary and the on/off switch.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BluetoothScreen(
     state: MainUiState,
@@ -47,50 +51,55 @@ fun BluetoothScreen(
 ) {
     BackHandler(onBack = onBack)
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        TextButton(
-            onClick = onBack,
-            modifier = Modifier.align(Alignment.Start),
+    Column(modifier = modifier.fillMaxSize()) {
+        // The platform's own pattern: title and back arrow in one bar, not a button above a
+        // heading. It also gives the gesture and the button the same target to lead back to.
+        TopAppBar(
+            title = { Text(stringResource(R.string.bluetooth_screen_title)) },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_arrow_back),
+                        contentDescription = stringResource(R.string.back),
+                    )
+                }
+            },
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Text(stringResource(R.string.back))
+            SwitchSection(
+                headingRes = R.string.bluetooth_heading,
+                bodyRes = R.string.bluetooth_body,
+                noteRes = R.string.bluetooth_one_way_note,
+                enabled = state.bluetoothOnEnable,
+                onEnabledChange = onBluetoothOnEnableChange,
+            )
+
+            HorizontalDivider()
+
+            HelmetPicker(
+                helmet = state.helmet,
+                paired = state.pairedDevices,
+                canListDevices = state.canListDevices,
+                onHelmetChange = onHelmetChange,
+                onGrantBluetooth = onGrantBluetooth,
+            )
+
+            HorizontalDivider()
+
+            AutoStartSection(
+                enabled = state.autoStartWithHelmet,
+                hasHelmet = state.helmet != null,
+                onEnabledChange = onAutoStartChange,
+            )
         }
-
-        Text(
-            text = stringResource(R.string.bluetooth_screen_title),
-            style = MaterialTheme.typography.headlineMedium,
-        )
-
-        SwitchSection(
-            headingRes = R.string.bluetooth_heading,
-            bodyRes = R.string.bluetooth_body,
-            noteRes = R.string.bluetooth_one_way_note,
-            enabled = state.bluetoothOnEnable,
-            onEnabledChange = onBluetoothOnEnableChange,
-        )
-
-        HorizontalDivider()
-
-        HelmetPicker(
-            helmet = state.helmet,
-            paired = state.pairedDevices,
-            canListDevices = state.canListDevices,
-            onHelmetChange = onHelmetChange,
-            onGrantBluetooth = onGrantBluetooth,
-        )
-
-        HorizontalDivider()
-
-        AutoStartSection(
-            enabled = state.autoStartWithHelmet,
-            hasHelmet = state.helmet != null,
-            onEnabledChange = onAutoStartChange,
-        )
     }
 }
 
