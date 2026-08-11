@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -29,6 +30,22 @@ class PreferencesRepository(context: Context) : BikeModeStore {
 
     override suspend fun setFirstLaunchCompleted() {
         dataStore.edit { it[KEY_FIRST_LAUNCH_COMPLETED] = true }
+    }
+
+    override suspend fun setBluetoothOnEnable(enabled: Boolean) {
+        dataStore.edit { it[KEY_BLUETOOTH_ON_ENABLE] = enabled }
+    }
+
+    override suspend fun setHelmet(device: PairedDevice?) {
+        dataStore.edit {
+            if (device == null) {
+                it.remove(KEY_HELMET_ADDRESS)
+                it.remove(KEY_HELMET_NAME)
+            } else {
+                it[KEY_HELMET_ADDRESS] = device.address
+                it[KEY_HELMET_NAME] = device.name
+            }
+        }
     }
 
     override suspend fun markActive(previous: SavedRotationState) {
@@ -61,6 +78,12 @@ class PreferencesRepository(context: Context) : BikeModeStore {
                 null
             },
             firstLaunchCompleted = this[KEY_FIRST_LAUNCH_COMPLETED] == true,
+            // Absent means never chosen, which is the opt-out default rather than off.
+            bluetoothOnEnable = this[KEY_BLUETOOTH_ON_ENABLE] != false,
+            // The address is what identifies the device; a missing name just falls back to it.
+            helmet = this[KEY_HELMET_ADDRESS]?.let {
+                PairedDevice(address = it, name = this[KEY_HELMET_NAME] ?: it)
+            },
         )
     }
 
@@ -70,5 +93,8 @@ class PreferencesRepository(context: Context) : BikeModeStore {
         val KEY_PREV_ACCELEROMETER_ROTATION = intPreferencesKey("previous_accelerometer_rotation")
         val KEY_PREV_USER_ROTATION = intPreferencesKey("previous_user_rotation")
         val KEY_FIRST_LAUNCH_COMPLETED = booleanPreferencesKey("first_launch_completed")
+        val KEY_BLUETOOTH_ON_ENABLE = booleanPreferencesKey("bluetooth_on_enable")
+        val KEY_HELMET_ADDRESS = stringPreferencesKey("helmet_address")
+        val KEY_HELMET_NAME = stringPreferencesKey("helmet_name")
     }
 }

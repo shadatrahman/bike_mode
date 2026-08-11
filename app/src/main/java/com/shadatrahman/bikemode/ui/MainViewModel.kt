@@ -7,7 +7,10 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.shadatrahman.bikemode.bluetooth.BluetoothHelmetLink
+import com.shadatrahman.bikemode.bluetooth.HelmetLink
 import com.shadatrahman.bikemode.data.LandscapeDirection
+import com.shadatrahman.bikemode.data.PairedDevice
 import com.shadatrahman.bikemode.data.PreferencesRepository
 import com.shadatrahman.bikemode.rotation.BikeModeManager
 import com.shadatrahman.bikemode.util.PermissionManager
@@ -23,6 +26,11 @@ data class MainUiState(
     val hasPermission: Boolean = false,
     val bikeModeActive: Boolean = false,
     val direction: LandscapeDirection = LandscapeDirection.RIGHT,
+    val bluetoothOnEnable: Boolean = true,
+    val helmet: PairedDevice? = null,
+    val pairedDevices: List<PairedDevice> = emptyList(),
+    /** False means the paired list is empty because we may not read it, not because there is none. */
+    val canListDevices: Boolean = false,
     val showError: Boolean = false,
 )
 
@@ -30,7 +38,13 @@ class MainViewModel(
     private val application: Application,
     private val manager: BikeModeManager = BikeModeManager(application),
     private val repository: PreferencesRepository = PreferencesRepository(application),
+    private val helmetLink: HelmetLink = BluetoothHelmetLink(application),
 ) : ViewModel() {
+
+    override fun onCleared() {
+        helmetLink.close()
+        super.onCleared()
+    }
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
@@ -46,12 +60,20 @@ class MainViewModel(
             val hasPermission = PermissionManager.canWriteSettings(application)
             // Coming back to the app also repairs a rotation another app knocked loose.
             val active = hasPermission && manager.reassert()
+            val preferences = manager.preferences()
+            // Re-read on every resume: the rider may have paired the helmet, or granted Bluetooth
+            // access, on a system screen since we last looked.
+            val paired = helmetLink.bondedDevices()
             _uiState.update {
                 it.copy(
                     loading = false,
                     hasPermission = hasPermission,
                     bikeModeActive = active,
-                    direction = manager.preferences().direction,
+                    direction = preferences.direction,
+                    bluetoothOnEnable = preferences.bluetoothOnEnable,
+                    helmet = preferences.helmet,
+                    pairedDevices = paired,
+                    canListDevices = PermissionManager.canUseBluetooth(application),
                 )
             }
         }
@@ -71,6 +93,20 @@ class MainViewModel(
             _uiState.update { it.copy(direction = direction) }
             manager.setDirection(direction).onFailure { _uiState.update { it.copy(showError = true) } }
             BikeModeWidgetProvider.refresh(application)
+        }
+    }
+
+    fun setBluetoothOnEnable(enabled: Boolean) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(bluetoothOnEnable = enabled) }
+            manager.setBluetoothOnEnable(enabled)
+        }
+    }
+
+    fun setHelmet(device: PairedDevice?) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(helmet = device) }
+            manager.setHelmet(device)
         }
     }
 

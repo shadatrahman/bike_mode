@@ -1,6 +1,7 @@
 package com.shadatrahman.bikemode
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -22,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import com.shadatrahman.bikemode.bluetooth.BluetoothRequestActivity
 import com.shadatrahman.bikemode.ui.MainScreen
 import com.shadatrahman.bikemode.ui.MainViewModel
 import com.shadatrahman.bikemode.ui.PermissionScreen
@@ -100,6 +102,13 @@ private fun BikeModeApp(viewModel: MainViewModel) {
                 state = state,
                 onToggleBikeMode = viewModel::toggleBikeMode,
                 onDirectionChange = viewModel::setDirection,
+                onBluetoothOnEnableChange = viewModel::setBluetoothOnEnable,
+                onHelmetChange = viewModel::setHelmet,
+                // The same trampoline that asks to turn Bluetooth on also asks for the permission,
+                // and onResume re-reads the paired list once the rider comes back.
+                onGrantBluetooth = {
+                    context.startActivity(Intent(context, BluetoothRequestActivity::class.java))
+                },
                 onAddTile = { QuickSettingsTilePrompt.request(context) },
                 modifier = contentModifier,
             )

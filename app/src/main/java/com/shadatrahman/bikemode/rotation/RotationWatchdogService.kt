@@ -5,8 +5,11 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.bluetooth.BluetoothDevice
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.database.ContentObserver
 import android.os.Build
@@ -19,6 +22,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import com.shadatrahman.bikemode.MainActivity
 import com.shadatrahman.bikemode.R
+import com.shadatrahman.bikemode.bluetooth.BluetoothHelmetLink
+import com.shadatrahman.bikemode.bluetooth.HelmetMonitor
+import com.shadatrahman.bikemode.bluetooth.HelmetState
 import com.shadatrahman.bikemode.data.LandscapeDirection
 import com.shadatrahman.bikemode.widget.BikeModeWidgetProvider
 import kotlinx.coroutines.CoroutineScope
@@ -46,9 +52,24 @@ class RotationWatchdogService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val manager by lazy { BikeModeManager(applicationContext) }
+    private val helmetLink by lazy { BluetoothHelmetLink(applicationContext) }
+    private val helmetMonitor by lazy {
+        HelmetMonitor(helmetLink, scope) { state ->
+            helmetState = state
+            refreshNotification()
+        }
+    }
 
     private var observer: ContentObserver? = null
     private var pendingReassert: Job? = null
+    private var aclReceiver: BroadcastReceiver? = null
+
+    /** Cached so the notification can be rebuilt from any of the things that change it. */
+    @Volatile private var direction: LandscapeDirection? = null
+
+    @Volatile private var helmetState: HelmetState = HelmetState.NONE
+
+    @Volatile private var helmetAddress: String? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -64,8 +85,9 @@ class RotationWatchdogService : Service() {
         }
 
         // Must happen before anything slow: the system gives us five seconds to go foreground.
-        goForeground(direction = null)
+        refreshNotification()
         observe()
+        watchHelmet()
         // If the system kills this process anyway, the content-trigger job survives to restart us.
         JobRotationWatchdog.schedule(applicationContext)
         // Whatever drifted while we were not running gets repaired the moment we come back up.
@@ -76,8 +98,40 @@ class RotationWatchdogService : Service() {
     override fun onDestroy() {
         observer?.let { contentResolver.unregisterContentObserver(it) }
         observer = null
+        aclReceiver?.let { runCatching { unregisterReceiver(it) } }
+        aclReceiver = null
+        helmetMonitor.stop()
+        helmetLink.close()
         scope.cancel()
         super.onDestroy()
+    }
+
+    /**
+     * Starts the bounded connect watch, plus an ACL listener that keeps the notification honest if
+     * the helmet turns up later — a broadcast costs nothing while nothing happens, unlike a poll.
+     */
+    private fun watchHelmet() {
+        scope.launch {
+            val helmet = manager.preferences().helmet
+            helmetAddress = helmet?.address
+            helmetMonitor.watch(helmet?.address)
+        }
+        if (aclReceiver != null) return
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val address = helmetAddress ?: return
+                helmetMonitor.onConnectionChanged(address)
+            }
+        }
+        registerReceiver(
+            receiver,
+            IntentFilter().apply {
+                addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+                addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+            },
+            RECEIVER_NOT_EXPORTED,
+        )
+        aclReceiver = receiver
     }
 
     /**
@@ -108,7 +162,8 @@ class RotationWatchdogService : Service() {
             if (!manager.reassert()) {
                 stopSelf()
             } else {
-                goForeground(manager.preferences().direction)
+                direction = manager.preferences().direction
+                refreshNotification()
             }
             BikeModeWidgetProvider.refresh(applicationContext)
         }
@@ -123,9 +178,14 @@ class RotationWatchdogService : Service() {
         }
     }
 
-    /** The special-use type only exists from API 34; below it the untyped call is the correct one. */
-    private fun goForeground(direction: LandscapeDirection?) {
-        val notification = buildNotification(direction)
+    /**
+     * Also the update path: calling startForeground again while already foreground just replaces
+     * the notification, which is what every state change here needs.
+     *
+     * The special-use type only exists from API 34; below it the untyped call is the correct one.
+     */
+    private fun refreshNotification() {
+        val notification = buildNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 NOTIFICATION_ID,
@@ -137,7 +197,7 @@ class RotationWatchdogService : Service() {
         }
     }
 
-    private fun buildNotification(direction: LandscapeDirection?): Notification {
+    private fun buildNotification(): Notification {
         val open = PendingIntent.getActivity(
             this,
             0,
@@ -150,17 +210,28 @@ class RotationWatchdogService : Service() {
             Intent(this, RotationWatchdogService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val text = when (direction) {
-            LandscapeDirection.LEFT -> R.string.watchdog_text_left
-            LandscapeDirection.RIGHT -> R.string.watchdog_text_right
-            null -> R.string.bike_mode_locked_landscape
-        }
+        val rotation = getString(
+            when (direction) {
+                LandscapeDirection.LEFT -> R.string.watchdog_text_left
+                LandscapeDirection.RIGHT -> R.string.watchdog_text_right
+                null -> R.string.bike_mode_locked_landscape
+            }
+        )
+        val helmet = helmetState.summaryRes()?.let { getString(it) }
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_bike_mode)
             .setContentTitle(getString(R.string.watchdog_title))
-            .setContentText(getString(text))
+            .setContentText(
+                if (helmet == null) rotation else getString(R.string.watchdog_text_with_helmet, rotation, helmet)
+            )
             .setContentIntent(open)
             .addAction(0, getString(R.string.watchdog_stop), stop)
+            // Only offered when it is the useful thing to tap: the helmet did not turn up.
+            .apply {
+                if (helmetState == HelmetState.MISSING) {
+                    addAction(0, getString(R.string.watchdog_bluetooth_settings), bluetoothSettings())
+                }
+            }
             .setOngoing(true)
             .setSilent(true)
             .setShowWhen(false)
@@ -169,6 +240,21 @@ class RotationWatchdogService : Service() {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
+
+    /** Nothing to say when no device was chosen, so the notification stays about rotation alone. */
+    private fun HelmetState.summaryRes(): Int? = when (this) {
+        HelmetState.NONE -> null
+        HelmetState.WAITING -> R.string.watchdog_helmet_waiting
+        HelmetState.CONNECTED -> R.string.watchdog_helmet_connected
+        HelmetState.MISSING -> R.string.watchdog_helmet_missing
+    }
+
+    private fun bluetoothSettings(): PendingIntent = PendingIntent.getActivity(
+        this,
+        2,
+        Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
 
     /** Low importance: the notification is a status line and an off switch, never an alert. */
     private fun createChannel() {

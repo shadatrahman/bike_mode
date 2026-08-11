@@ -13,6 +13,11 @@ interface BikeModeStore {
 
     suspend fun setFirstLaunchCompleted()
 
+    suspend fun setBluetoothOnEnable(enabled: Boolean)
+
+    /** Null clears the choice, so Bike Mode stops watching for any particular device. */
+    suspend fun setHelmet(device: PairedDevice?)
+
     /** Records that Bike Mode is on, along with the state to restore when it goes off. */
     suspend fun markActive(previous: SavedRotationState)
 

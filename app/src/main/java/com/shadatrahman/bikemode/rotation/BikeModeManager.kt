@@ -1,9 +1,12 @@
 package com.shadatrahman.bikemode.rotation
 
 import android.content.Context
+import com.shadatrahman.bikemode.bluetooth.BluetoothController
+import com.shadatrahman.bikemode.bluetooth.BluetoothRequester
 import com.shadatrahman.bikemode.data.BikeModePreferences
 import com.shadatrahman.bikemode.data.BikeModeStore
 import com.shadatrahman.bikemode.data.LandscapeDirection
+import com.shadatrahman.bikemode.data.PairedDevice
 import com.shadatrahman.bikemode.data.PreferencesRepository
 
 /**
@@ -16,12 +19,14 @@ class BikeModeManager(
     private val store: BikeModeStore,
     private val settings: RotationSettings,
     private val watchdog: RotationWatchdog,
+    private val bluetooth: BluetoothRequester,
 ) {
 
     constructor(context: Context) : this(
         store = PreferencesRepository(context),
         settings = RotationController(context),
         watchdog = ServiceRotationWatchdog(context),
+        bluetooth = BluetoothController(context),
     )
 
     /**
@@ -42,7 +47,11 @@ class BikeModeManager(
 
     suspend fun preferences(): BikeModePreferences = store.current()
 
-    suspend fun enable(): Result<Unit> {
+    /**
+     * [requestBluetooth] is off for the boot path: an activity cannot launch from a boot broadcast,
+     * and waking a rider's phone with a dialog after a restart would be wrong even if it could.
+     */
+    suspend fun enable(requestBluetooth: Boolean = true): Result<Unit> {
         val prefs = store.current()
         // Only capture the previous state on a genuine off -> on transition, otherwise a re-apply
         // would overwrite it with Bike Mode's own values and lose what we owe the user.
@@ -51,6 +60,7 @@ class BikeModeManager(
             .onSuccess {
                 store.markActive(previous)
                 watchdog.start()
+                if (requestBluetooth && prefs.bluetoothOnEnable) raiseBluetooth()
             }
     }
 
@@ -87,5 +97,26 @@ class BikeModeManager(
     suspend fun setDirection(direction: LandscapeDirection): Result<Unit> {
         store.setDirection(direction)
         return if (isActive()) settings.applyBikeMode(direction) else Result.success(Unit)
+    }
+
+    /**
+     * The watchdog service reads the choice when it next comes up, so changing it mid-ride takes
+     * effect on the following toggle rather than restarting the watch under the rider.
+     */
+    suspend fun setHelmet(device: PairedDevice?) = store.setHelmet(device)
+
+    /** Switching this on mid-ride acts at once, so the rider sees the setting do something. */
+    suspend fun setBluetoothOnEnable(enabled: Boolean) {
+        store.setBluetoothOnEnable(enabled)
+        if (enabled && isActive()) raiseBluetooth()
+    }
+
+    /**
+     * Never lowers Bluetooth, only raises it, and only when it is actually down — so a rider who
+     * already has an intercom paired never sees a dialog at all. See [BluetoothRequester] for why
+     * the reverse is not available to us.
+     */
+    private fun raiseBluetooth() {
+        if (!bluetooth.isEnabled()) bluetooth.requestEnable()
     }
 }

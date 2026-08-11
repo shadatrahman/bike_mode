@@ -24,6 +24,14 @@ class FakeBikeModeStore(
         state.update { it.copy(firstLaunchCompleted = true) }
     }
 
+    override suspend fun setBluetoothOnEnable(enabled: Boolean) {
+        state.update { it.copy(bluetoothOnEnable = enabled) }
+    }
+
+    override suspend fun setHelmet(device: PairedDevice?) {
+        state.update { it.copy(helmet = device) }
+    }
+
     override suspend fun markActive(previous: SavedRotationState) {
         state.update { it.copy(bikeModeActive = true, previous = previous) }
     }

@@ -25,6 +25,20 @@
     <string name="direction_heading">Rotation direction</string>
     <string name="direction_left">Landscape Left</string>
     <string name="direction_right">Landscape Right</string>
+    <string name="bluetooth_heading">Turn on Bluetooth</string>
+    <string name="bluetooth_body">When Bike Mode starts, ask to switch Bluetooth on so a helmet intercom or earbuds connect.</string>
+    <string name="bluetooth_one_way_note">Android has no way for an app to switch Bluetooth back off, so Bike Mode leaves it on when you stop.</string>
+    <string name="helmet_heading">Helmet device</string>
+    <string name="helmet_body">Bike Mode watches for this device when a ride starts and tells you if it did not connect.</string>
+    <string name="helmet_cannot_connect_note">Android does not let apps connect an audio device themselves, so Bike Mode can only prompt it and report back.</string>
+    <string name="helmet_none">None</string>
+    <string name="helmet_no_paired_devices">No paired devices yet. Pair your helmet in Bluetooth settings, or enter its address below.</string>
+    <string name="helmet_manual_label">Or enter a MAC address</string>
+    <string name="helmet_manual_hint">AA:BB:CC:DD:EE:FF</string>
+    <string name="helmet_manual_invalid">Not a valid Bluetooth address.</string>
+    <string name="helmet_manual_use">Use this address</string>
+    <string name="helmet_permission_needed">Allow Bluetooth access to list your paired devices.</string>
+    <string name="helmet_permission_grant">Allow Bluetooth access</string>
     <string name="quick_settings_heading">Quick Settings</string>
     <string name="quick_settings_body">Add Bike Mode to Quick Settings for one-tap access while riding.</string>
     <string name="quick_settings_add">Add Quick Settings tile</string>
@@ -49,6 +63,11 @@
     <string name="watchdog_text_left">Holding landscape left</string>
     <string name="watchdog_text_right">Holding landscape right</string>
     <string name="watchdog_stop">Turn off</string>
+    <string name="watchdog_bluetooth_settings">Bluetooth settings</string>
+    <string name="watchdog_text_with_helmet">%1$s · %2$s</string>
+    <string name="watchdog_helmet_waiting">Waiting for helmet</string>
+    <string name="watchdog_helmet_connected">Helmet connected</string>
+    <string name="watchdog_helmet_missing">Helmet not connected</string>
 
     <!-- Errors -->
     <string name="error_system_rejected">Your device prevented Bike Rotation Lock from changing the screen orientation.</string>

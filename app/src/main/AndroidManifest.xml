@@ -12,6 +12,14 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Only ever used for the ongoing "Bike Mode on" status and its off switch. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+        Used only to see whether Bluetooth is off and to show the system's own "turn it on?" dialog.
+        The app never scans for, pairs with or talks to a device, so it never asks to locate one.
+    -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-feature
+        android:name="android.hardware.bluetooth"
+        android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -45,6 +53,17 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/bike_mode_widget_info" />
         </receiver>
+
+        <!--
+            Invisible host for the system Bluetooth dialog, so the tile and the widget can raise it
+            too. Its own task, kept out of recents: it is a dialog, not a screen.
+        -->
+        <activity
+            android:name=".bluetooth.BluetoothRequestActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Re-arms the watchdog after a reboot or an app update. -->
         <receiver

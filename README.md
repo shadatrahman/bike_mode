@@ -99,7 +99,7 @@ An Android activity can request its own orientation. Apps that hard-code their o
 | UI | Jetpack Compose + Material 3 |
 | State | MVVM / lightweight unidirectional state |
 | Storage | Jetpack DataStore Preferences |
-| System integration | `Settings.System`, `TileService` |
+| System integration | `Settings.System`, `TileService`, foreground service, `BluetoothProfile` |
 | Networking | None |
 
 ## Structure
@@ -110,6 +110,7 @@ app
 ├── ui/              MainScreen, PermissionScreen, MainViewModel
 ├── rotation/        BikeModeManager, RotationController, ServiceRotationWatchdog
 │                    (RotationWatchdogService + JobRotationWatchdog)
+├── bluetooth/       BluetoothController, BluetoothHelmetLink, HelmetMonitor
 ├── quicksettings/   BikeModeTileService
 ├── widget/          BikeModeWidgetProvider
 ├── data/            PreferencesRepository
@@ -128,6 +129,20 @@ A portrait-locked app in the foreground makes Android rewrite `USER_ROTATION`, s
 - **`BootReceiver`** — content-trigger jobs cannot be persisted, so neither layer survives a reboot on its own. The rotation settings do survive one, so `BOOT_COMPLETED` re-applies the lock and re-arms both.
 
 A **force stop** (from app settings or an OEM task killer) puts the app in Android's stopped state, which cancels jobs and blocks broadcasts by design; nothing can recover from it. Tapping the widget, the tile or the app brings Bike Mode back.
+
+### Bluetooth and the helmet
+
+Both features here are shaped by what Android withholds from ordinary apps, so it is worth being explicit about the limits.
+
+**Turning Bluetooth on** (opt-out, toggle in the app). `BluetoothAdapter.enable()` is a no-op for apps targeting API 33+, so Bike Mode uses `ACTION_REQUEST_ENABLE`, a system dialog the rider confirms. It is hosted by an invisible `BluetoothRequestActivity` because the tile and widget have no activity of their own. There is no matching public *request disable*, so this is **one-way**: Bike Mode raises Bluetooth and never lowers it again. The dialog only appears when Bluetooth is actually off.
+
+**Watching for the helmet** (optional; pick a paired device or type a MAC address). `BluetoothA2dp` and `BluetoothHeadset` expose `getConnectedDevices`, `getConnectionState` and `isAudioConnected` — but their `connect()` methods sit behind `BLUETOOTH_PRIVILEGED`, a signature permission. **An ordinary app cannot command an audio connection.** So `HelmetMonitor` does what it can:
+
+1. wait 15s for Android's own auto-connect, which usually succeeds
+2. if not, `nudge()` — open and immediately close an RFCOMM socket, which often prompts an intercom to bring its own audio profiles up. Best effort; some headsets ignore it entirely
+3. wait 10s more, then report `Helmet not connected` in the notification with a one-tap shortcut to Bluetooth settings
+
+The watch is bounded — polling stops once it settles, and an `ACTION_ACL_CONNECTED` receiver (free while idle) corrects the notification if the helmet turns up later.
 
 ## Roadmap
 

@@ -39,7 +39,7 @@ class BootReceiver : BroadcastReceiver() {
                 // enable() is the re-arm path: it re-applies the pinned direction and starts both
                 // watchdogs, and it keeps the saved pre-Bike-Mode state rather than overwriting it.
                 if (PermissionManager.canWriteSettings(appContext) && manager.isActive()) {
-                    manager.enable()
+                    manager.enable(requestBluetooth = false)
                 }
                 BikeModeWidgetProvider.refresh(appContext)
             } finally {

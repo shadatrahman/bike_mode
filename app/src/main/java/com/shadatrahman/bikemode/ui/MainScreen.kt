@@ -1,5 +1,6 @@
 package com.shadatrahman.bikemode.ui
 
+import android.bluetooth.BluetoothAdapter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -23,9 +25,15 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -39,6 +47,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.shadatrahman.bikemode.R
 import com.shadatrahman.bikemode.data.LandscapeDirection
+import com.shadatrahman.bikemode.data.PairedDevice
 import com.shadatrahman.bikemode.ui.theme.BikeModeTheme
 
 /**
@@ -53,6 +62,9 @@ fun MainScreen(
     state: MainUiState,
     onToggleBikeMode: () -> Unit,
     onDirectionChange: (LandscapeDirection) -> Unit,
+    onBluetoothOnEnableChange: (Boolean) -> Unit,
+    onHelmetChange: (PairedDevice?) -> Unit,
+    onGrantBluetooth: () -> Unit,
     onAddTile: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -63,6 +75,9 @@ fun MainScreen(
                 viewportHeight = maxHeight,
                 onToggleBikeMode = onToggleBikeMode,
                 onDirectionChange = onDirectionChange,
+                onBluetoothOnEnableChange = onBluetoothOnEnableChange,
+                onHelmetChange = onHelmetChange,
+                onGrantBluetooth = onGrantBluetooth,
                 onAddTile = onAddTile,
             )
         } else {
@@ -70,6 +85,9 @@ fun MainScreen(
                 state = state,
                 onToggleBikeMode = onToggleBikeMode,
                 onDirectionChange = onDirectionChange,
+                onBluetoothOnEnableChange = onBluetoothOnEnableChange,
+                onHelmetChange = onHelmetChange,
+                onGrantBluetooth = onGrantBluetooth,
                 onAddTile = onAddTile,
             )
         }
@@ -81,6 +99,9 @@ private fun PortraitLayout(
     state: MainUiState,
     onToggleBikeMode: () -> Unit,
     onDirectionChange: (LandscapeDirection) -> Unit,
+    onBluetoothOnEnableChange: (Boolean) -> Unit,
+    onHelmetChange: (PairedDevice?) -> Unit,
+    onGrantBluetooth: () -> Unit,
     onAddTile: () -> Unit,
 ) {
     Column(
@@ -113,6 +134,23 @@ private fun PortraitLayout(
 
         HorizontalDivider()
 
+        BluetoothSection(
+            enabled = state.bluetoothOnEnable,
+            onEnabledChange = onBluetoothOnEnableChange,
+        )
+
+        HorizontalDivider()
+
+        HelmetSection(
+            helmet = state.helmet,
+            paired = state.pairedDevices,
+            canListDevices = state.canListDevices,
+            onHelmetChange = onHelmetChange,
+            onGrantBluetooth = onGrantBluetooth,
+        )
+
+        HorizontalDivider()
+
         QuickSettingsSection(onAddTile = onAddTile)
 
         Text(
@@ -133,6 +171,9 @@ private fun LandscapeLayout(
     viewportHeight: Dp,
     onToggleBikeMode: () -> Unit,
     onDirectionChange: (LandscapeDirection) -> Unit,
+    onBluetoothOnEnableChange: (Boolean) -> Unit,
+    onHelmetChange: (PairedDevice?) -> Unit,
+    onGrantBluetooth: () -> Unit,
     onAddTile: () -> Unit,
 ) {
     Column(
@@ -187,6 +228,19 @@ private fun LandscapeLayout(
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             DirectionPicker(selected = state.direction, onDirectionChange = onDirectionChange)
+            HorizontalDivider()
+            BluetoothSection(
+                enabled = state.bluetoothOnEnable,
+                onEnabledChange = onBluetoothOnEnableChange,
+            )
+            HorizontalDivider()
+            HelmetSection(
+                helmet = state.helmet,
+                paired = state.pairedDevices,
+                canListDevices = state.canListDevices,
+                onHelmetChange = onHelmetChange,
+                onGrantBluetooth = onGrantBluetooth,
+            )
             HorizontalDivider()
             QuickSettingsSection(onAddTile = onAddTile)
             Text(
@@ -318,6 +372,188 @@ private fun DirectionPicker(
     }
 }
 
+/**
+ * Picking the helmet: paired devices as a list, plus a typed address for one that is not paired
+ * yet. The note about connecting is load-bearing — Android reserves audio-profile connect calls
+ * for privileged apps, so the honest promise is "watched and reported", not "connected".
+ */
+@Composable
+private fun HelmetSection(
+    helmet: PairedDevice?,
+    paired: List<PairedDevice>,
+    canListDevices: Boolean,
+    onHelmetChange: (PairedDevice?) -> Unit,
+    onGrantBluetooth: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.helmet_heading),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            text = stringResource(R.string.helmet_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        if (!canListDevices) {
+            Text(
+                text = stringResource(R.string.helmet_permission_needed),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(onClick = onGrantBluetooth, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.helmet_permission_grant))
+            }
+        } else {
+            Column(Modifier.selectableGroup()) {
+                DeviceRow(
+                    label = stringResource(R.string.helmet_none),
+                    selected = helmet == null,
+                    onClick = { onHelmetChange(null) },
+                )
+                paired.forEach { device ->
+                    DeviceRow(
+                        label = device.name,
+                        detail = device.address,
+                        selected = device.address.equals(helmet?.address, ignoreCase = true),
+                        onClick = { onHelmetChange(device) },
+                    )
+                }
+            }
+            if (paired.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.helmet_no_paired_devices),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        ManualAddressEntry(onHelmetChange = onHelmetChange)
+
+        Text(
+            text = stringResource(R.string.helmet_cannot_connect_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun DeviceRow(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    detail: String? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(text = label, style = MaterialTheme.typography.bodyLarge)
+            if (detail != null) {
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * For a helmet that is not paired to this phone yet, so it cannot appear in the list above. The
+ * address is validated by the platform's own checker rather than a hand-rolled pattern.
+ */
+@Composable
+private fun ManualAddressEntry(onHelmetChange: (PairedDevice?) -> Unit) {
+    var typed by rememberSaveable { mutableStateOf("") }
+    val normalised = typed.trim().uppercase()
+    val valid = BluetoothAdapter.checkBluetoothAddress(normalised)
+
+    OutlinedTextField(
+        value = typed,
+        onValueChange = { typed = it },
+        label = { Text(stringResource(R.string.helmet_manual_label)) },
+        placeholder = { Text(stringResource(R.string.helmet_manual_hint)) },
+        singleLine = true,
+        isError = typed.isNotBlank() && !valid,
+        supportingText = if (typed.isNotBlank() && !valid) {
+            { Text(stringResource(R.string.helmet_manual_invalid)) }
+        } else {
+            null
+        },
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedButton(
+        onClick = {
+            // No name to show for a device this phone has never paired with, so the address is it.
+            onHelmetChange(PairedDevice(address = normalised, name = normalised))
+            typed = ""
+        },
+        enabled = valid,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.helmet_manual_use))
+    }
+}
+
+/**
+ * The one-way note is not a disclaimer for its own sake: Android gives apps no way to ask for
+ * Bluetooth to be turned back off, so the rider needs to know Bike Mode will not undo this.
+ */
+@Composable
+private fun BluetoothSection(
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = enabled,
+                    role = Role.Switch,
+                    onValueChange = onEnabledChange,
+                )
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.bluetooth_heading),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Switch(checked = enabled, onCheckedChange = null)
+        }
+        Text(
+            text = stringResource(R.string.bluetooth_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = stringResource(R.string.bluetooth_one_way_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 @Composable
 private fun QuickSettingsSection(
     onAddTile: () -> Unit,
@@ -356,6 +592,9 @@ private fun MainScreenOffPreview() {
             state = MainUiState(loading = false, hasPermission = true),
             onToggleBikeMode = {},
             onDirectionChange = {},
+            onBluetoothOnEnableChange = {},
+            onHelmetChange = {},
+            onGrantBluetooth = {},
             onAddTile = {},
         )
     }
@@ -374,6 +613,9 @@ private fun MainScreenLandscapeRightPreview() {
             ),
             onToggleBikeMode = {},
             onDirectionChange = {},
+            onBluetoothOnEnableChange = {},
+            onHelmetChange = {},
+            onGrantBluetooth = {},
             onAddTile = {},
         )
     }
@@ -392,6 +634,9 @@ private fun MainScreenLandscapeLeftPreview() {
             ),
             onToggleBikeMode = {},
             onDirectionChange = {},
+            onBluetoothOnEnableChange = {},
+            onHelmetChange = {},
+            onGrantBluetooth = {},
             onAddTile = {},
         )
     }

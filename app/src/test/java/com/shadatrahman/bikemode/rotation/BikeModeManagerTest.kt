@@ -1,6 +1,8 @@
 package com.shadatrahman.bikemode.rotation
 
 import android.view.Surface
+import com.shadatrahman.bikemode.bluetooth.BluetoothRequester
+import com.shadatrahman.bikemode.bluetooth.FakeBluetoothRequester
 import com.shadatrahman.bikemode.data.BikeModePreferences
 import com.shadatrahman.bikemode.data.BikeModeStore
 import com.shadatrahman.bikemode.data.FakeBikeModeStore
@@ -26,7 +28,8 @@ class BikeModeManagerTest {
         store: BikeModeStore,
         settings: RotationSettings,
         watchdog: RotationWatchdog = FakeRotationWatchdog(),
-    ) = BikeModeManager(store, settings, watchdog)
+        bluetooth: BluetoothRequester = FakeBluetoothRequester(enabled = true),
+    ) = BikeModeManager(store, settings, watchdog, bluetooth)
 
     @Test
     fun `enable turns off auto-rotate and pins the preferred landscape direction`() = runTest {
@@ -306,6 +309,107 @@ class BikeModeManagerTest {
         assertFalse(manager.reassert())
         assertFalse(watchdog.running)
         assertEquals(AUTO_ROTATE_ON, settings.state.accelerometerRotation)
+    }
+
+    @Test
+    fun `enable asks for Bluetooth when it is off and the rider opted in`() = runTest {
+        val bluetooth = FakeBluetoothRequester(enabled = false)
+        val manager = bikeModeManager(
+            FakeBikeModeStore(), FakeRotationSettings(), bluetooth = bluetooth
+        )
+
+        manager.enable()
+
+        assertEquals(1, bluetooth.requests)
+    }
+
+    @Test
+    fun `enable leaves Bluetooth alone when it is already on`() = runTest {
+        val bluetooth = FakeBluetoothRequester(enabled = true)
+        val manager = bikeModeManager(
+            FakeBikeModeStore(), FakeRotationSettings(), bluetooth = bluetooth
+        )
+
+        manager.enable()
+
+        // A rider with an intercom already paired should never see the dialog.
+        assertEquals(0, bluetooth.requests)
+    }
+
+    @Test
+    fun `enable leaves Bluetooth alone when the rider opted out`() = runTest {
+        val bluetooth = FakeBluetoothRequester(enabled = false)
+        val store = FakeBikeModeStore(BikeModePreferences(bluetoothOnEnable = false))
+        val manager = bikeModeManager(store, FakeRotationSettings(), bluetooth = bluetooth)
+
+        manager.enable()
+
+        assertEquals(0, bluetooth.requests)
+    }
+
+    @Test
+    fun `the boot path re-arms without raising a dialog`() = runTest {
+        val bluetooth = FakeBluetoothRequester(enabled = false)
+        val store = FakeBikeModeStore()
+        val settings = FakeRotationSettings(AUTO_ROTATE_ON, Surface.ROTATION_0)
+        val manager = bikeModeManager(store, settings, bluetooth = bluetooth)
+
+        manager.enable(requestBluetooth = false)
+
+        // The lock is back, but nothing was thrown at a rider who just restarted their phone.
+        assertEquals(AUTO_ROTATE_OFF, settings.state.accelerometerRotation)
+        assertEquals(Surface.ROTATION_270, settings.state.userRotation)
+        assertEquals(0, bluetooth.requests)
+    }
+
+    @Test
+    fun `a failed enable does not ask for Bluetooth`() = runTest {
+        val bluetooth = FakeBluetoothRequester(enabled = false)
+        val settings = FakeRotationSettings().apply { failWrites = true }
+        val manager = bikeModeManager(FakeBikeModeStore(), settings, bluetooth = bluetooth)
+
+        manager.enable()
+
+        assertEquals(0, bluetooth.requests)
+    }
+
+    @Test
+    fun `disable never turns Bluetooth back off`() = runTest {
+        val bluetooth = FakeBluetoothRequester(enabled = false)
+        val manager = bikeModeManager(
+            FakeBikeModeStore(), FakeRotationSettings(), bluetooth = bluetooth
+        )
+        manager.enable()
+
+        manager.disable()
+
+        // Android offers apps no "request disable", so raising it is a one-way trip by design.
+        assertTrue(bluetooth.isEnabled())
+    }
+
+    @Test
+    fun `opting in mid-ride asks straight away`() = runTest {
+        val bluetooth = FakeBluetoothRequester(enabled = false)
+        val store = FakeBikeModeStore(BikeModePreferences(bluetoothOnEnable = false))
+        val manager = bikeModeManager(store, FakeRotationSettings(), bluetooth = bluetooth)
+        manager.enable()
+
+        manager.setBluetoothOnEnable(true)
+
+        assertTrue(store.current().bluetoothOnEnable)
+        assertEquals(1, bluetooth.requests)
+    }
+
+    @Test
+    fun `opting in while Bike Mode is off only persists the preference`() = runTest {
+        val bluetooth = FakeBluetoothRequester(enabled = false)
+        val store = FakeBikeModeStore(BikeModePreferences(bluetoothOnEnable = false))
+        val manager = bikeModeManager(store, FakeRotationSettings(), bluetooth = bluetooth)
+
+        manager.setBluetoothOnEnable(true)
+
+        assertTrue(store.current().bluetoothOnEnable)
+        assertEquals(0, bluetooth.requests)
     }
 
     @Test

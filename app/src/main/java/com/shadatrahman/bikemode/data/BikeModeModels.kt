@@ -13,6 +13,14 @@ enum class LandscapeDirection(val surfaceRotation: Int) {
     }
 }
 
+/**
+ * A Bluetooth device the rider has singled out — the helmet intercom, typically.
+ *
+ * Held by address rather than by name because names are not unique and change when a device is
+ * renamed; the name is carried alongside only so the UI has something readable to show.
+ */
+data class PairedDevice(val address: String, val name: String)
+
 /** The Android rotation settings as they were before Bike Mode touched them. */
 data class SavedRotationState(
     val accelerometerRotation: Int,
@@ -24,4 +32,8 @@ data class BikeModePreferences(
     val bikeModeActive: Boolean = false,
     val previous: SavedRotationState? = null,
     val firstLaunchCompleted: Boolean = false,
+    /** Ask to turn Bluetooth on when the ride starts. Opt-out, since a helmet intercom is the norm. */
+    val bluetoothOnEnable: Boolean = true,
+    /** The device Bike Mode watches for once the ride starts. Null means it watches nothing. */
+    val helmet: PairedDevice? = null,
 )
